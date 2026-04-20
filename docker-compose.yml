@@ -1,0 +1,60 @@
+services:
+
+  mcp-server:
+    container_name: mcp-server
+    build:
+      context: ../../
+      dockerfile: ./dev/mcp-server/Dockerfile
+    expose:
+      - 8001
+      #- 6274
+     # - 6277
+    environment:
+      - HOST=0.0.0.0
+     # - ALLOWED_ORIGINS=https://mcp-server.local.net,https://mcp-server,http://127.0.0.1:6274,http://localhost:6274,http://127.0.0.1:8000,http://localhost:8000
+    user: "1000:1000"
+    volumes:
+      - type: volume
+        source: dev-vol
+        target: /home/dev
+        volume:
+          subpath: mcp-server
+
+    labels:
+      - "traefik.enable=true"
+      # Dynamic Host: memory.mcp.localhost
+      #- "traefik.http.routers.memory.rule=Host(`memory.${INTERNAL_DOCKER_HOST}`)"
+      - "traefik.http.routers.mcp-server.rule=Host(`mcp-server.local.net`)"
+      - "traefik.http.routers.mcp-server.entrypoints=websecure"
+      - "traefik.http.routers.mcp-server.tls=true"
+      - "traefik.http.services.mcp-server.loadbalancer.server.port=6274"
+      
+      # FIXED: Force Traefik to use the proxy network to reach this container
+      - "traefik.docker.network=internal.net"
+
+
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    networks:
+     # - mcp-net
+      - internal-net
+    restart: unless-stopped
+    # command:
+    #   >
+    #   sh -c "bunx @modelcontextprotocol/inspector uv --server main.py --config conf.json"
+    
+volumes:
+  dev-vol:
+    name: dev-vol
+    external: true
+    
+networks:
+  # mcp-net:
+  #   name: mcp-net
+  #   external: true
+  internal-net:
+    name: internal-net
+    external: true
