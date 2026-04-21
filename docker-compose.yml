@@ -14,11 +14,8 @@ services:
      # - ALLOWED_ORIGINS=https://mcp-server.local.net,https://mcp-server,http://127.0.0.1:6274,http://localhost:6274,http://127.0.0.1:8000,http://localhost:8000
     user: "1000:1000"
     volumes:
-      - type: volume
-        source: dev-vol
-        target: /home/dev
-        volume:
-          subpath: mcp-server
+      - mcp-server:/home/dev/app
+      - vscode-extensions:/home/dev/.vscode-server/extensions
 
     labels:
       - "traefik.enable=true"
@@ -47,14 +44,15 @@ services:
     #   sh -c "bunx @modelcontextprotocol/inspector uv --server main.py --config conf.json"
     
 volumes:
-  dev-vol:
-    name: dev-vol
+  vscode-extensions:
+    name: vscode-extensions
     external: true
+  mcp-server:
+    name: mcp-server
+
     
 networks:
-  # mcp-net:
-  #   name: mcp-net
-  #   external: true
+
   internal-net:
     name: internal-net
     external: true
