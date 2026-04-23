@@ -284,3 +284,51 @@ Architecture Decision Records (ADRs). Immutable — append only. Never delete or
 - ✅ Stale data caught at the moment it matters most (when being used)
 - ❌ Stale memories not flagged until someone searches for them
 - ❌ Slight overhead on every search call
+
+---
+
+### ADR-015: Three-Agent Team with Tiered Delegation (2026-04-23)
+
+**Context:**
+- Current `coder` agent is too generic — no specialization, no verification loop, no domain knowledge injection
+- Need agent team that can tackle 7 implementation priorities with proper separation of concerns
+
+**Decision:**
+- 3 subagents: explorer (read-only scout), implementer (writes code), reviewer (verifies code). Coordinator injects skill knowledge into delegation prompts. Tiered delegation: Task tool (fast) → CLI (full context) → Server API/plugin (async, lifecycle).
+
+**Alternatives Considered:**
+- Keep generic coder + skills only → Rejected: no verification loop, fox/henhouse problem
+- 4+ agents (add architect) → Rejected: architecture planning is done, need implementation not design
+- Pure Server API delegation → Rejected: adds latency, Task tool is sufficient for most tasks
+- Pure background-agents plugin → Rejected: read-only limitation excludes implementer
+
+**Consequences:**
+- ✅ Clean write/verify separation
+- ✅ Skill knowledge gets injected where needed
+- ✅ Tiered delegation matches task complexity
+- ❌ More coordination overhead (manual context injection)
+- ❌ background-agents is read-only — implementer needs Task tool or custom plugin
+- ❌ Three delegation patterns to learn
+
+---
+
+### ADR-016: Coordinator-Side Skill Injection (2026-04-23)
+
+**Context:**
+- Skills (`.agents/skills/`) contain domain knowledge. Subagents cannot load skills themselves.
+- Need a mechanism to make skill knowledge available to subagents.
+
+**Decision:**
+- Coordinator loads skill content, then includes relevant portions in task delegation prompts. The skill is a coordinator tool, not a subagent tool.
+
+**Alternatives Considered:**
+- opencode-skillful plugin for lazy loading → Rejected: not yet evaluated, adds dependency
+- Agent markdown files with embedded skill content → Rejected: duplicates knowledge, stale drift risk
+- Skills as agent prompt includes → Rejected: would bloat all agent prompts with irrelevant context
+
+**Consequences:**
+- ✅ Subagents get relevant knowledge without needing skill access
+- ✅ Coordinator controls what knowledge each delegation gets
+- ✅ No duplication — single source of truth in skill files
+- ❌ Coordinator context window bears the cost of loading skills
+- ❌ Manual — coordinator must remember to inject relevant skill content

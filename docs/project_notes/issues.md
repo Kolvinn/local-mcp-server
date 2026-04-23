@@ -19,9 +19,24 @@ Work completed and planned, with ticket references where available. Keep it simp
 - **Status**: Completed
 - **Description**: Full 5-phase architecture plan for dual-layer memory MCP server. Defined 7 v1 tools, 3-dimension scoping, git-first drift detection, on-retrieval staleness checks. ADRs 010-014 recorded. V2 items deferred (cleanup_stale, check_drift, reingest, subagents). Detailed plan in task_plan.md + findings.md.
 
+### 2026-04-23 - Session 004: Agentic Team Architecture Research & Design
+- **Status**: Completed (Phase 1 of 6)
+- **Description**: Researched OpenCode agent/plugin/SDK ecosystem. Designed 3-agent team (explorer, implementer, reviewer) with tiered delegation (Task → CLI → Server API) and coordinator-side skill injection. Evaluated ecosystem plugins (background-agents, subtask2, conductor). Created task_plan_agents.md + findings_agents.md.
+- **Notes**: Skills to install externally: subagent-creator, fastmcp, code-review-quality. Phase 2 (config changes) is next.
+
 ---
 
 ## Planned Work (Priority Order)
+
+### Next: Agent Team — Configuration Changes
+- **Status**: Not Started
+- **Description**: Rename coder→implementer, add reviewer agent, update coordinator prompt/permissions, create focused agent prompts.
+- **Priority**: 0 (prerequisite for all implementation work)
+
+### Next: Agent Team — Plugin Integration
+- **Status**: Not Started
+- **Description**: Install opencode-background-agents plugin, test delegate/delegation_read tools for async read-only delegation.
+- **Priority**: 0b
 
 ### Next: Implementation — Directory Structure
 - **Status**: Not Started

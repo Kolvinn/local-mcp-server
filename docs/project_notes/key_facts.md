@@ -102,6 +102,28 @@ Project configuration, constants, and frequently-needed **non-sensitive** inform
 - **No auth/multi-tenancy**: Single user access model only
 - **No healthchecks**: Not a priority right now
 
+## Agent Team
+
+- **Coordinator** (primary): opencode-go/glm-5.1 — Orchestrator, delegates, tracks goals, injects skill context
+- **Explorer** (subagent): opencode-go/minimax-m2.7 — Read-only scout, file search, pattern discovery
+- **Implementer** (subagent): opencode-go/kimi-k2.5 — Write code, fix bugs, run tests (renamed from `coder`)
+- **Reviewer** (subagent): opencode-go/kimi-k2.5 — Verify code, catch issues, read-only review (TO BE ADDED)
+
+### Delegation Mechanisms
+
+- **Tier 1**: Task tool — fast, in-process, for explorer + simple lookups
+- **Tier 2**: CLI `opencode run --agent <name>` — full agent context, blocking
+- **Tier 3**: Server API / Plugin — async, lifecycle control, parallel execution
+
+### Skill Injection Pattern
+
+Skills are loaded by coordinator, injected into task delegation prompts. Subagents cannot load skills directly.
+
+### Planning Files
+
+- `task_plan.md` / `findings.md` / `progress.md` — MCP server architecture (complete, 5/5 phases)
+- `task_plan_agents.md` / `findings_agents.md` / `progress_agents.md` — Agent team architecture (Phase 1/6 complete)
+
 ## Do-Nots
 
 - **Do NOT** use Node.js/npx — use conda + bun
