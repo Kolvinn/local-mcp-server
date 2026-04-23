@@ -1,10 +1,20 @@
 {
   "version": 1,
   "skills": {
+    "architecture-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "cf81f4523a2fd3017590cf2792fe305e4375d2f75d22037b92f05852e22feae2"
+    },
     "mem0": {
       "source": "mem0ai/mem0",
       "sourceType": "github",
       "computedHash": "3e43b045f0e3a91bc7686acc91d948d605c63548f833581ab50ed49d37711f5d"
+    },
+    "planning-with-files": {
+      "source": "othmanadi/planning-with-files",
+      "sourceType": "github",
+      "computedHash": "93522d6989e542f4670d9d7a347b2e0013c46935845d599a15fafd77643b9d42"
     },
     "project-memory": {
       "source": "SpillwaveSolutions/project-memory",

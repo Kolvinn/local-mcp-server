@@ -4,7 +4,7 @@
     "coordinator": {
       "description": "Coordinator — Primary agent. Context king. Goal-oriented orchestrator for RAG pipeline experimentation. Delegates, optimizes, challenges assumptions.",
       "mode": "primary",
-      "model": "opencode-go/minimax-m2.7",
+      "model": "opencode-go/glm-5.1",
       "prompt": "{file:./prompts/coordinator.md}",
       "permission": {
         "bash": {

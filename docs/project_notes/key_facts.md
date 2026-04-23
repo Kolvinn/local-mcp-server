@@ -1,0 +1,130 @@
+# Key Facts
+
+Project configuration, constants, and frequently-needed **non-sensitive** information. Organize by category using bullet lists.
+
+---
+
+## ⚠️ SECURITY WARNING
+
+**NEVER store passwords, API keys, or sensitive credentials in this file.** Use `.env` files (gitignored) or secrets managers.
+
+---
+
+## Project Identity
+
+- **Project**: local-mcp-server
+- **Purpose**: MCP server providing a local AI memory layer using Mem0, Qdrant, and Ollama
+- **Agent Context**: OpenCode (NOT Roo Code — "roo_agent" user_id is stale)
+- **Repository**: `/home/dev/app`
+
+## Runtime Stack
+
+- **Language (Primary)**: Python 3.14+
+- **Language (Secondary)**: TypeScript/Bun — placeholder only, `src/index.ts` is dead code
+- **MCP Framework**: FastMCP 3.2.4+
+- **Web Framework**: FastAPI 0.136+
+- **ASGI Server**: Uvicorn 0.44+
+- **HTTP Client**: httpx 0.28+
+- **Memory SDK**: mem0ai (latest, in pyproject.toml, not yet wired in code)
+- **Env Vars**: python-dotenv 1.2+
+- **Package Manager**: uv (latest, installed via conda)
+- **JS Runtime**: Bun (available via conda, unused for core logic)
+
+## Infrastructure
+
+- **Base Image**: `framework-base:latest` — custom, conda-based. NOT on Docker Hub. Must be pre-built.
+- **Container Name**: `mcp-server`
+- **Container Mount**: `/home/dev/app` → volume `mcp-server`
+- **Network**: `internal-net` (external Docker network, shared by all containers)
+- **Reverse Proxy**: Traefik (labels-based routing)
+- **User**: `dev:1000:1000`
+- **Access Model**: Single user only. No auth, no public exposure. User connects directly.
+
+## Port Reference
+
+| Service | Internal Port | Notes |
+|---------|---------------|-------|
+| mcp-server | **8000** (target serving port) | User connects directly to 8000 |
+| mcp-memory-service | 8000 | Referenced in root main.py — no container provides it yet (broken reference) |
+| mcp-server (compose) | 8001 | Currently misaligned with serving port 8000 — needs fix |
+| Traefik label | 6274 | Vestigial, was for MCP Inspector UI on host. No longer used. |
+| Qdrant | 6333 | User-managed, external to this repo |
+| Ollama | 11434 | User-managed, external to this repo |
+
+## External Infrastructure (User-Managed)
+
+- **Qdrant**: Vector store. User ensures it's running at `QDRANT_HOST`:`QDRANT_PORT`. Not in this repo's compose.
+- **Ollama**: LLM + embeddings. User ensures it's running at `OLLAMA_URL`. Embedding model: `bge-m3` (configurable via `EMBEDDING_MODEL`). Not in this repo's compose.
+
+## Environment Variables
+
+- `QDRANT_HOST` — Qdrant server hostname (default: `qdrant`)
+- `QDRANT_PORT` — Qdrant server port (default: `6333`)
+- `OLLAMA_URL` — Ollama server URL (default: `http://ollama:11434`)
+- `EMBEDDING_MODEL` — Embedding model (default: `bge-m3`)
+- `LLM_MODEL` — LLM for fact extraction + compact_session (default: `llama3.1:8b`)
+- `AGENT_ID` — user_id for Mem0, who created the memory (default: `default_agent`)
+- `STALENESS_WINDOW_DAYS` — Days before memory flagged stale (default: `30`)
+- `HOST` — Server bind address (default: `0.0.0.0`)
+- `PORT` — Server port (default: `8000`, fixes 8001 misalignment)
+
+## V1 MCP Tools (7)
+
+- `add_memory` — Store fact + metadata (tags, source_user, related_files, source_path)
+- `search_memory` — Semantic search + auto-discover `.memory-context.yaml` + staleness/git flags
+- `delete_memory` — Remove by ID
+- `validate_memories` — Re-check flagged, update validated_at or flag for delete
+- `compact_session` — Summarize session → permanent facts (manual or auto-triggered)
+- `audit_stale` — Return stale/drifted memories for review (read-only)
+- `sync_metadata` — Create/update `.memory-context.yaml` at a path
+
+## Local Metadata Spec
+
+- File: `.memory-context.yaml` — auto-discovered per directory, cascades like .gitignore
+- Fields: `version`, `project_id`, `tags`, `scope_summary`
+- No memory_ids — shared vocabulary coupling only (tags, project_id)
+
+## Memory Scoping (3 dimensions)
+
+- `user_id` — who created (AGENT_ID env var)
+- `project_id` — what project (from `.memory-context.yaml`)
+- `source_user` — who it's about (optional, for business partners/clients)
+
+## V2 Deferred
+
+- `cleanup_stale` tool, `check_drift` tool, reingest pipeline, subagent workers
+
+## Fixed Constraints
+
+- **Hardware**: RTX 3080 (10GB VRAM max), 32GB RAM max
+- **No npx**: Use `bunx` or `conda` instead
+- **No Node.js**: This environment uses conda + bun
+- **No auth/multi-tenancy**: Single user access model only
+- **No healthchecks**: Not a priority right now
+
+## Do-Nots
+
+- **Do NOT** use Node.js/npx — use conda + bun
+- **Do NOT** rely on `src/index.ts` — dead code
+- **Do NOT** hardcode secrets — use `.env` files (gitignored)
+- **Do NOT** use "roo_agent" as user_id — stale, from Roo Code era
+- **Do NOT** exceed 10GB VRAM / 32GB RAM
+- **Do NOT** add auth/multi-tenancy — single user only
+
+## Source Files
+
+- `src/main.py` — In-process mem0 implementation with Qdrant + Ollama. Needs cleanup (duplicate imports, hardcoded user_id, manifest file approach). Currently runs on port 8001.
+- `main.py` (root) — Minimal FastMCP proxy scaffold. Mounts proxy to `mcp-memory-service:8000/mcp` — broken reference. Runs on port 8001.
+- `src/config.json` — MCP server config. Transport: `streamable-http`. URL: `http://0.0.0.0:8001/mcp`.
+- `docker-compose.yml` — Single service `mcp-server` on `internal-net`. Exposes 8001.
+- `src/pyproject.toml` — Python dependencies
+- `.opencode/memory/` — Legacy memory system (DECISIONS.md, CONTEXT.md, STACK.md, handoff.md). Git-tracked. To be deleted when mem0 takes over.
+
+---
+
+## Tips
+
+- Keep entries current — update when things change
+- Include URLs for easy navigation
+- Group related information together
+- Mark deprecated items clearly with dates
