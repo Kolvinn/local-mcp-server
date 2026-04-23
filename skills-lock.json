@@ -5,6 +5,11 @@
       "source": "mem0ai/mem0",
       "sourceType": "github",
       "computedHash": "3e43b045f0e3a91bc7686acc91d948d605c63548f833581ab50ed49d37711f5d"
+    },
+    "project-memory": {
+      "source": "SpillwaveSolutions/project-memory",
+      "sourceType": "github",
+      "computedHash": "c0488a390e0226d0e9bfae18bfed0345a9f853adce6fedd132feda421d4c04c7"
     }
   }
 }

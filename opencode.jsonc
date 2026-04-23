@@ -1,0 +1,68 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "coordinator": {
+      "description": "Coordinator — Primary agent. Context king. Goal-oriented orchestrator for RAG pipeline experimentation. Delegates, optimizes, challenges assumptions.",
+      "mode": "primary",
+      "model": "opencode-go/minimax-m2.7",
+      "prompt": "{file:./prompts/coordinator.md}",
+      "permission": {
+        "bash": {
+          "python3 *": "ask",
+          "pip *": "ask",
+          "pytest *": "ask",
+          "npm *": "ask",
+          "node *": "ask",
+          "curl *": "ask",
+          "wget *": "ask",
+          "git status": "allow",
+          "git diff *": "allow",
+          "git log *": "allow",
+          "*": "ask"
+        },
+        "webfetch": "allow",
+        "websearch": "allow",
+        "task": {
+          "*": "deny",
+          "coder": "allow",
+          "explorer": "allow"
+        }
+      }
+    },
+    "coder": {
+      "description": "Code implementation agent for RAG pipeline experimentation. Writes, edits, refactors, and tests Python code for chunking, embedding, and retrieval.",
+      "mode": "subagent",
+      "model": "opencode-go/kimi-k2.5",
+      "prompt": "{file:./prompts/coder.md}",
+      "permission": {
+        "bash": {
+          "python3 *": "allow",
+          "pip *": "allow",
+          "pytest *": "allow",
+          "git status": "allow",
+          "git diff *": "allow",
+          "*": "ask"
+        },
+        "webfetch": "deny",
+        "websearch": "deny"
+      }
+    },
+    "explorer": {
+      "description": "Context gathering agent for RAG pipeline experimentation. Directory scans, file searches, grep, project mapping. Fast, efficient, no heavy scanning.",
+      "mode": "subagent",
+      "model": "opencode-go/minimax-m2.7",
+      "prompt": "{file:./prompts/explorer.md}",
+      "permission": {
+        "bash": {
+          "git status": "allow",
+          "git log *": "allow",
+          "git diff *": "allow",
+          "*": "ask"
+        },
+        "webfetch": "deny",
+        "websearch": "deny"
+      }
+    }
+  }
+}
+
