@@ -287,7 +287,7 @@ Architecture Decision Records (ADRs). Immutable — append only. Never delete or
 
 ---
 
-### ADR-015: Three-Agent Team with Tiered Delegation (2026-04-23)
+### ADR-015: Three-Agent Team with Tiered Delegation (2026-04-23) — SUPERSEDED by ADR-018
 
 **Context:**
 - Current `coder` agent is too generic — no specialization, no verification loop, no domain knowledge injection
@@ -295,6 +295,10 @@ Architecture Decision Records (ADRs). Immutable — append only. Never delete or
 
 **Decision:**
 - 3 subagents: explorer (read-only scout), implementer (writes code), reviewer (verifies code). Coordinator injects skill knowledge into delegation prompts. Tiered delegation: Task tool (fast) → CLI (full context) → Server API/plugin (async, lifecycle).
+
+**Superseded by:**
+- ADR-018 expanded to 5 agents with dedicated domain expert (explorer, expert, implementer, reviewer + coordinator)
+- ADR-017 replaced coordinator-side skill injection with expert agent pattern + user gates
 
 **Alternatives Considered:**
 - Keep generic coder + skills only → Rejected: no verification loop, fox/henhouse problem
@@ -309,10 +313,11 @@ Architecture Decision Records (ADRs). Immutable — append only. Never delete or
 - ❌ More coordination overhead (manual context injection)
 - ❌ background-agents is read-only — implementer needs Task tool or custom plugin
 - ❌ Three delegation patterns to learn
+- ❌ SUPERSEDED: No domain expert role, coordinator was knowledge middleman (ADR-017 fixes this)
 
 ---
 
-### ADR-016: Coordinator-Side Skill Injection (2026-04-23)
+### ADR-016: Coordinator-Side Skill Injection (2026-04-23) — SUPERSEDED by ADR-017
 
 **Context:**
 - Skills (`.agents/skills/`) contain domain knowledge. Subagents cannot load skills themselves.
@@ -320,6 +325,9 @@ Architecture Decision Records (ADRs). Immutable — append only. Never delete or
 
 **Decision:**
 - Coordinator loads skill content, then includes relevant portions in task delegation prompts. The skill is a coordinator tool, not a subagent tool.
+
+**Superseded by:**
+- ADR-017: Domain expert agent owns skill knowledge (baked into prompt). Coordinator asks expert for condensed options instead of loading skills itself.
 
 **Alternatives Considered:**
 - opencode-skillful plugin for lazy loading → Rejected: not yet evaluated, adds dependency
@@ -332,3 +340,77 @@ Architecture Decision Records (ADRs). Immutable — append only. Never delete or
 - ✅ No duplication — single source of truth in skill files
 - ❌ Coordinator context window bears the cost of loading skills
 - ❌ Manual — coordinator must remember to inject relevant skill content
+- ❌ SUPERSEDED: Coordinator is middleman — ADR-017 bakes skills into expert agent prompt instead
+
+---
+
+### ADR-017: 3-Layer Delegation with User Gates (2026-04-24)
+
+**Context:**
+- ADR-016 had coordinator injecting skill knowledge into subagent prompts — middleman pattern, wasteful and lossy
+- Need clear separation of concerns: why (coordinator), how (expert), what (implementer)
+- User must approve at every stage transition — no autonomous pipeline
+
+**Decision:**
+- 3-layer delegation: Coordinator (why) → Domain Expert (how) → Implementer (what), with user approval gates between each stage
+- Domain expert is a permanent `all`-mode OpenCode agent
+- **Expert prompt contains domain expertise only** (FastMCP patterns, Mem0 SDK reference, hexagonal architecture principles, Python/MCP best practices). NOT project-specific context.
+- **Coordinator passes project context per-task** (relevant ADRs, relevant key facts, current goal scope, constraints). Expert only knows what goal is being worked on, not project overview.
+- Coordinator owns project overview — goals, how they fit together, priority ordering. Expert owns domain knowledge.
+- Expert output goes through coordinator → user approval → implementer delegation
+- Reviewer remains separate (read-only verification, fox/henhouse prevention)
+- Explorer remains read-only scout
+- Stretch goal v2: Expert directly injects context into implementer (skip coordinator pass-through)
+
+**Alternatives Considered:**
+- ADR-016 coordinator-side injection → Superseded: middleman pattern, bloats coordinator context, lossy compression
+- All context baked into expert prompt → Rejected: expert carries stale project context, prompt bloats with irrelevant ADRs/key facts
+- Fully autonomous pipeline (no user gates) → Rejected: user must approve each stage to maintain intent alignment
+- Expert also self-reviews → Rejected: fox/henhouse problem
+
+**Consequences:**
+- ✅ Coordinator context stays clean — orchestrates only, owns project overview
+- ✅ Expert prompt stays lean — domain expertise only, no project-specific context
+- ✅ Project context passed per-task — always current, never stale, scoped to the goal at hand
+- ✅ User in the loop at every stage gate (expert options, implementation, verification)
+- ✅ Implementer is lean — receives approved specs, writes code
+- ✅ Clear separation: why (coordinator) / how (expert) / what (implementer)
+- ❌ More round-trips per feature (but every round-trip has user intent alignment)
+- ❌ Coordinator must craft concise project context for each expert delegation
+- ❌ v1: Coordinator passes expert output to implementer (future: direct injection)
+
+---
+
+### ADR-018: 5-Agent Team with Domain Expert (2026-04-24)
+
+**Context:**
+- ADR-015 defined 3 agents (explorer, implementer, reviewer) — no domain knowledge specialist
+- ADR-017 established 3-layer delegation (coordinator/expert/implementer) requiring a dedicated expert agent
+- The "implementer" role needs to be split: expert owns domain knowledge, implementer owns code syntax
+
+**Decision:**
+- 5-agent team: Coordinator (primary), Expert (all), Explorer (subagent), Implementer (subagent), Reviewer (subagent)
+- Expert is `all`-mode — delegated to by coordinator, but also user-switchable for direct questions
+- **Expert prompt: domain expertise only** — FastMCP patterns, Mem0 SDK, hexagonal architecture, Python/MCP best practices. No project ADRs, key facts, or goal overview.
+- **Coordinator passes project context per-task** — relevant ADRs, key facts, current goal scope, constraints. Expert only sees what's needed for the current task.
+- **Coordinator owns project overview** — how goals fit together, priority ordering, what's been done. Expert only knows the current goal.
+- Implementer receives approved specs only — lean prompt with Python/FastMCP syntax, no domain architecture
+- Explorer and Reviewer unchanged from ADR-015 design
+- Model: Expert=kimi-k2.5, Implementer=kimi-k2.5, Explorer=minimax-m2.7, Reviewer=kimi-k2.5
+
+**Alternatives Considered:**
+- 3-agent team (ADR-015 original) → Superseded: no domain knowledge specialist
+- Expert also implements → Rejected: mixing how and what responsibilities
+- 6+ agents (separate expert per domain) → Rejected: over-engineering for v1, domains are tightly coupled
+- All context baked into expert → Rejected: stale project context, prompt bloat, expert doesn't need to know about goals it's not working on
+
+**Consequences:**
+- ✅ Clean role separation: why (coordinator) / how (expert) / what (implementer)
+- ✅ Expert can be directly consulted by user (all-mode)
+- ✅ Expert prompt stays lean and stable — domain knowledge doesn't change per task
+- ✅ Project context is always fresh — passed per delegation, not baked in
+- ✅ Coordinator retains project overview without being a domain middleman
+- ✅ Implementer prompt stays lean (syntax only)
+- ❌ 5 agents to configure vs 3
+- ❌ More delegation steps per feature
+- ❌ Coordinator must scope project context for each expert delegation

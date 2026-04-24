@@ -24,19 +24,19 @@ Work completed and planned, with ticket references where available. Keep it simp
 - **Description**: Researched OpenCode agent/plugin/SDK ecosystem. Designed 3-agent team (explorer, implementer, reviewer) with tiered delegation (Task → CLI → Server API) and coordinator-side skill injection. Evaluated ecosystem plugins (background-agents, subtask2, conductor). Created task_plan_agents.md + findings_agents.md.
 - **Notes**: Skills to install externally: subagent-creator, fastmcp, code-review-quality. Phase 2 (config changes) is next.
 
+### 2026-04-24 - Session 005: Agent Architecture Redesign & Config
+- **Status**: Completed
+- **Description**: Redesigned 3-agent team to 5-agent team with 3-layer delegation (ADR-017/018). Created prompts/expert.md (domain principles + skill index), prompts/implementer.md (syntax-focused), prompts/reviewer.md (priority-based review). Updated coordinator prompt with user gates and @expert delegation. Updated opencode.jsonc with 5 agents.
+- **Notes**: ADR-015/016 superseded by ADR-018/017. Expert bakes domain knowledge only; coordinator passes project context per-task. Delegation flow mapping still needed.
+
 ---
 
 ## Planned Work (Priority Order)
 
-### Next: Agent Team — Configuration Changes
+### Next: Agent Team — Delegation Flow Mapping
 - **Status**: Not Started
-- **Description**: Rename coder→implementer, add reviewer agent, update coordinator prompt/permissions, create focused agent prompts.
-- **Priority**: 0 (prerequisite for all implementation work)
-
-### Next: Agent Team — Plugin Integration
-- **Status**: Not Started
-- **Description**: Install opencode-background-agents plugin, test delegate/delegation_read tools for async read-only delegation.
-- **Priority**: 0b
+- **Description**: Map what project context the coordinator passes to the expert for each priority implementation item (ADRs, key facts, goal scope).
+- **Priority**: 0c
 
 ### Next: Implementation — Directory Structure
 - **Status**: Not Started

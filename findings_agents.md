@@ -254,14 +254,19 @@ tool: {
 
 **Skill injection flow:**
 ```
-1. Coordinator loads skill (e.g., `skill fastmcp`)
-2. Skill knowledge enters coordinator's context
-3. Coordinator delegates to implementer via Task tool
-4. Task prompt INCLUDES relevant skill knowledge as context
-5. Implementer writes code informed by that knowledge
-6. Coordinator loads review skill → delegates to reviewer
-7. Reviewer checks code with review patterns in context
+1. Coordinator identifies what domain knowledge is needed
+2. Coordinator delegates to expert, passing PROJECT CONTEXT (ADRs, key facts, goal scope)
+3. Expert combines baked-in DOMAIN KNOWLEDGE with coordinator-provided project context
+4. Expert returns condensed options to coordinator
+5. Coordinator presents options to user for approval
+6. Coordinator delegates approved spec to implementer
+7. Reviewer verifies (read-only)
+8. Coordinator presents final result to user for sign-off
 ```
+
+NOTE: Expert prompt contains DOMAIN expertise only (FastMCP, Mem0, architecture patterns).
+Project context (ADRs, key facts, current goal) is passed per-task by the coordinator.
+This keeps expert prompt lean and prevents stale project context.
 
 ## Technical Decisions
 | Decision | Rationale |

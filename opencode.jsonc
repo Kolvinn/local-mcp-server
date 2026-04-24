@@ -2,7 +2,7 @@
   "$schema": "https://opencode.ai/config.json",
   "agent": {
     "coordinator": {
-      "description": "Coordinator — Primary agent. Context king. Goal-oriented orchestrator for RAG pipeline experimentation. Delegates, optimizes, challenges assumptions.",
+      "description": "Coordinator — Primary agent. Context king. Goal-oriented orchestrator. Owns project context, delegates to expert (how), implementer (what), explorer (scout), reviewer (verify). User gates at every stage.",
       "mode": "primary",
       "model": "opencode-go/glm-5.1",
       "prompt": "{file:./prompts/coordinator.md}",
@@ -24,23 +24,56 @@
         "websearch": "allow",
         "task": {
           "*": "deny",
-          "coder": "allow",
-          "explorer": "allow"
+          "expert": "allow",
+          "implementer": "allow",
+          "explorer": "allow",
+          "reviewer": "allow"
         }
       }
     },
-    "coder": {
-      "description": "Code implementation agent for RAG pipeline experimentation. Writes, edits, refactors, and tests Python code for chunking, embedding, and retrieval.",
+    "expert": {
+      "description": "Domain expert — MCP server architecture, Mem0 integration, Python backend patterns. Returns condensed options. Read-only advisor with lazy skill loading.",
+      "mode": "all",
+      "model": "opencode-go/kimi-k2.5",
+      "prompt": "{file:./prompts/expert.md}",
+      "permission": {
+        "bash": {
+          "git log *": "allow",
+          "git diff *": "allow",
+          "git show *": "allow",
+          "rg *": "allow",
+          "grep *": "allow",
+          "find *": "allow",
+          "cat *": "allow",
+          "*": "deny"
+        },
+        "edit": "deny",
+        "write": "deny",
+        "webfetch": "deny",
+        "websearch": "deny",
+        "glob": "allow",
+        "task": {
+          "*": "deny"
+        }
+      }
+    },
+    "implementer": {
+      "description": "Implementer — Python code writer. Receives approved specs, writes minimal correct code. Syntax-focused, spec-driven.",
       "mode": "subagent",
       "model": "opencode-go/kimi-k2.5",
-      "prompt": "{file:./prompts/coder.md}",
+      "prompt": "{file:./prompts/implementer.md}",
       "permission": {
         "bash": {
           "python3 *": "allow",
           "pip *": "allow",
           "pytest *": "allow",
+          "uv *": "allow",
           "git status": "allow",
           "git diff *": "allow",
+          "rg *": "allow",
+          "grep *": "allow",
+          "find *": "allow",
+          "cat *": "allow",
           "*": "ask"
         },
         "webfetch": "deny",
@@ -48,7 +81,7 @@
       }
     },
     "explorer": {
-      "description": "Context gathering agent for RAG pipeline experimentation. Directory scans, file searches, grep, project mapping. Fast, efficient, no heavy scanning.",
+      "description": "Context gathering agent. Directory scans, file searches, grep, project mapping. Fast, efficient, read-only.",
       "mode": "subagent",
       "model": "opencode-go/minimax-m2.7",
       "prompt": "{file:./prompts/explorer.md}",
@@ -62,7 +95,34 @@
         "webfetch": "deny",
         "websearch": "deny"
       }
+    },
+    "reviewer": {
+      "description": "Read-only code reviewer. Verifies implementations against specs. Priority-based findings: Blocker, Major, Minor, Suggestion.",
+      "mode": "subagent",
+      "model": "opencode-go/kimi-k2.5",
+      "prompt": "{file:./prompts/reviewer.md}",
+      "permission": {
+        "bash": {
+          "rg *": "allow",
+          "git diff *": "allow",
+          "git log *": "allow",
+          "git show *": "allow",
+          "find * -type f*": "allow",
+          "wc *": "allow",
+          "pytest *": "allow",
+          "*": "deny"
+        },
+        "edit": "deny",
+        "write": "deny",
+        "webfetch": "deny",
+        "websearch": "deny",
+        "glob": "allow",
+        "grep": "allow",
+        "read": "allow",
+        "task": {
+          "*": "deny"
+        }
+      }
     }
   }
 }
-

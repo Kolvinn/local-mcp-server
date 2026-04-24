@@ -104,10 +104,22 @@ Project configuration, constants, and frequently-needed **non-sensitive** inform
 
 ## Agent Team
 
-- **Coordinator** (primary): opencode-go/glm-5.1 — Orchestrator, delegates, tracks goals, injects skill context
+- **Coordinator** (primary): opencode-go/glm-5.1 — Orchestrates, tracks goals, user gates, delegates to experts
+- **Expert** (all): opencode-go/kimi-k2.5 — Domain knowledge (FastMCP, Mem0, architecture, ADRs). Baked-in skills. User-switchable.
 - **Explorer** (subagent): opencode-go/minimax-m2.7 — Read-only scout, file search, pattern discovery
-- **Implementer** (subagent): opencode-go/kimi-k2.5 — Write code, fix bugs, run tests (renamed from `coder`)
-- **Reviewer** (subagent): opencode-go/kimi-k2.5 — Verify code, catch issues, read-only review (TO BE ADDED)
+- **Implementer** (subagent): opencode-go/kimi-k2.5 — Code writing, Python/FastMCP syntax. Receives approved specs only.
+- **Reviewer** (subagent): opencode-go/kimi-k2.5 — Read-only code verification, fox/henhouse prevention
+
+### Delegation Model: 3-Layer with User Gates
+
+```
+WHY  → Coordinator (goals, decisions, user sign-offs)
+HOW  → Expert (domain knowledge, options, specifications)
+WHAT → Implementer (code, syntax, implementation)
+```
+
+- Every stage transition requires user approval (no autonomous pipeline)
+- Coordinator asks expert for options → user approves → coordinator delegates to implementer → user approves → reviewer verifies → user signs off
 
 ### Delegation Mechanisms
 
@@ -115,9 +127,13 @@ Project configuration, constants, and frequently-needed **non-sensitive** inform
 - **Tier 2**: CLI `opencode run --agent <name>` — full agent context, blocking
 - **Tier 3**: Server API / Plugin — async, lifecycle control, parallel execution
 
-### Skill Injection Pattern
+### Skill Injection Pattern (ADR-017, supersedes ADR-016)
 
-Skills are loaded by coordinator, injected into task delegation prompts. Subagents cannot load skills directly.
+- **Domain expertise** baked into expert agent prompt (FastMCP patterns, Mem0 SDK, hexagonal architecture, Python/MCP best practices)
+- **Project context** passed by coordinator per-task (relevant ADRs, key facts, current goal scope, constraints)
+- Expert only knows the current goal — not the entire project overview
+- Coordinator owns project overview (how goals fit together, priority ordering)
+- v2 stretch goal: Expert directly injects context into implementer
 
 ### Planning Files
 
