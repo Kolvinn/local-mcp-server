@@ -104,11 +104,21 @@
 ## 5-Question Reboot Check
 | Question | Answer |
 |----------|--------|
-| Where am I? | Phase 2 in progress — 5-agent model designed, implementing config |
-| Where am I going? | Phase 3: Config changes (opencode.jsonc + prompts) |
-| What's the goal? | 5-agent team with 3-layer delegation and user gates |
-| What have I learned? | ADR-017/018 supersede ADR-015/016 — expert owns knowledge, coordinator orchestrates |
-| What have I done? | Redesigned team, recorded ADRs, updated task plan |
+| Where am I? | Phase 2+3 complete — 5-agent config created and tested. Delegation flow mapping remaining. |
+| Where am I going? | Phase 4: Plugin integration (background-agents). Then Priority 1: hexagonal src/ directory. |
+| What's the goal? | 5-agent team operational, then begin MCP server implementation |
+| What have I learned? | Expert delegation works (Task tool + session resume). Expert returns condensed options correctly. Sessions are ephemeral — no persistence across OpenCode restarts. |
+| What have I done? | Created prompts/expert.md, implementer.md, reviewer.md. Updated coordinator.md. Updated opencode.jsonc for 5 agents. Tested expert delegation successfully. |
 
 ---
 *Updated: 2026-04-24 — Session 005*
+
+### Handoff Notes for Next Session
+- Phase 2+3 config is DONE. All prompt files created. opencode.jsonc updated.
+- Expert delegation tested and working (condensed options format correct, session resume works).
+- Implementer and reviewer delegation NOT yet tested (need an approved spec to test implementer, need code to test reviewer).
+- Expert skill loading NOT yet tested (expert would need to invoke skill() tool within session).
+- Phase 4 (background-agents plugin) and Phase 5 (custom write plugin) still pending.
+- Priority 0c (delegation flow mapping) still pending — map what context coordinator passes to expert per implementation item.
+- V2 backlog item: expert persistent memory via MCP server (add_memory/search_memory for architectural decisions across sessions).
+- Old prompts/coder.md deleted by user.

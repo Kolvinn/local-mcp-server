@@ -1,231 +1,393 @@
+"""MCP Memory Server v0 - Mem0-backed memory layer for AI agents."""
+
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import yaml
+from dotenv import load_dotenv
 from fastmcp import FastMCP
-from fastmcp.server import create_proxy
-import os
-import os
-import json
-import httpx
-from typing import Dict, Any, List
-from mcp.server.fastmcp import FastMCP
-from mem0 import Memory
-from pydantic import BaseModel
-# 1. Initialize the central orchestrator
+from pydantic import BaseModel, Field
 
-
-
-
-
+# Load environment variables
+load_dotenv()
 
 # =====================================================================
-# 1. SERVER & MEM0 INITIALIZATION
+# 1. ENVIRONMENT CONFIGURATION
 # =====================================================================
 
-# Initialize the MCP Server
-mcp = FastMCP("LocalAI-Memory-Layer")
-
-# Configure Mem0 to use your local Qdrant container and Ollama embeddings
-# Update these environment variables in your docker-compose.yml
 QDRANT_HOST = os.getenv("QDRANT_HOST", "qdrant")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "bge-m3") # or mxbai-embed-large
-
-config = {
-    "vector_store": {
-        "provider": "qdrant",
-        "config": {
-            "host": QDRANT_HOST,
-            "port": QDRANT_PORT,
-        }
-    },
-    "llm": {
-        "provider": "ollama",
-        "config": {
-            "model": "llama3.1:8b", # Used for Mem0's internal fact extraction
-            "base_url": OLLAMA_URL
-        }
-    },
-    "embedder": {
-        "provider": "ollama",
-        "config": {
-            "model": EMBEDDING_MODEL,
-            "base_url": OLLAMA_URL
-        }
-    }
-}
-
-# Initialize the Mem0 client
-memory_client = Memory.from_config(config)
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "bge-m3")
+LLM_MODEL = os.getenv("LLM_MODEL", "llama3.1:8b")
+AGENT_ID = os.getenv("AGENT_ID", "default_agent")
+STALENESS_WINDOW_DAYS = int(os.getenv("STALENESS_WINDOW_DAYS", "30"))
+HOST = os.getenv("HOST", "0.0.0.0")
+PORT = int(os.getenv("PORT", "8000"))
+MEMORY_CONTEXT_BASE = Path(os.getenv("MEMORY_CONTEXT_BASE", "/home/dev/app")).resolve()
 
 # =====================================================================
-# 2. HELPER FUNCTIONS (The "Generic Fill-Ins")
+# 2. FASTMCP INSTANCE CREATION
 # =====================================================================
 
-async def ask_local_llm(prompt: str, system_prompt: str = "You are a helpful assistant.") -> str:
-    """
-    Generic helper to query your local LLM (via LiteLLM proxy or Ollama directly)
-    for reasoning tasks like context drift detection.
-    """
-    url = f"{OLLAMA_URL}/api/generate"
-    payload = {
-        "model": "llama3.1:8b", # CHANGE THIS to your preferred reasoning model
-        "prompt": f"System: {system_prompt}\n\nUser: {prompt}",
-        "stream": False
-    }
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(url, json=payload, timeout=60.0)
-            response.raise_for_status()
-            return response.json().get("response", "")
-        except Exception as e:
-            return f"Error contacting local LLM: {str(e)}"
+mcp = FastMCP("memory-server")
 
 # =====================================================================
-# 3. MCP TOOL ENDPOINTS
+# 3. MEM0 INITIALIZATION (Fail-Fast)
 # =====================================================================
 
-@mcp.tool()
-async def search_project_memory(query: str, project_id: str, active_collections: List[str]) -> str:
-    """
-    Retrieves long-term architectural rules and facts from Qdrant.
-    
-    Args:
-        query: The specific question or topic (e.g., "How is Traefik configured?")
-        project_id: The identifier for the current project.
-        active_collections: A list of tags from the manifest to filter results (e.g., ["infrastructure"]).
-    """
-    # Build the metadata filter strictly based on the manifest state
-    filters = {
-        "AND": [
-            {"project_id": project_id},
-            {"collection": {"in": active_collections}}
-        ]
-    }
-    
+# Global memory_client - initialized below but can be mocked for testing
+memory_client = None
+
+
+def init_memory_client():
+    """Initialize the Mem0 memory client. Can be mocked for testing."""
+    global memory_client
+
+    if memory_client is not None:
+        return memory_client
+
     try:
-        # Mem0 search semantic retrieval
-        results = memory_client.search(query=query, user_id="roo_agent", filters=filters)
-        
-        if not results:
-            return "No relevant memories found in the current context."
-            
-        # Format the output for Roo Code
-        formatted_results = "Retrieved Context:\n"
-        for res in results:
-            formatted_results += f"- {res['memory']} (Score: {res['score']})\n"
-            
-        return formatted_results
+        from mem0 import Memory
+    except ImportError:
+        # For testing environments where mem0 isn't installed
+        raise ImportError("mem0 is required but not installed")
+
+    config = {
+        "vector_store": {
+            "provider": "qdrant",
+            "config": {
+                "host": QDRANT_HOST,
+                "port": QDRANT_PORT,
+            }
+        },
+        "llm": {
+            "provider": "ollama",
+            "config": {
+                "model": LLM_MODEL,
+                "base_url": OLLAMA_URL
+            }
+        },
+        "embedder": {
+            "provider": "ollama",
+            "config": {
+                "model": EMBEDDING_MODEL,
+                "base_url": OLLAMA_URL
+            }
+        }
+    }
+
+    # Fail-fast: server won't start if Qdrant/Ollama unreachable
+    try:
+        memory_client = Memory.from_config(config)
     except Exception as e:
-        return f"Error retrieving memory: {str(e)}"
+        print(f"FATAL: Failed to initialize Mem0: {e}")
+        raise
+
+    return memory_client
+
+
+# Initialize on import (can be overridden by tests)
+init_memory_client()
+
+# =====================================================================
+# 4. PYDANTIC MODELS
+# =====================================================================
+
+
+class AddMemoryInput(BaseModel):
+    content: str = Field(..., description="The memory content to store")
+    tags: List[str] = Field(default_factory=list, description="Vocabulary tags for filtering")
+    project_id: Optional[str] = Field(None, description="Project identifier")
+    source_user: Optional[str] = Field(None, description="Who this memory is about")
+    related_files: List[Dict[str, str]] = Field(default_factory=list, description="Files associated with this memory (list of {path, entered})")
+    source_path: Optional[str] = Field(None, description="Directory context at creation")
+
+
+class SearchMemoryInput(BaseModel):
+    query: str = Field(..., description="Natural language search query")
+    tags: List[str] = Field(default_factory=list, description="Filter by tags (OR logic within list)")
+    project_id: Optional[str] = Field(None, description="Filter by project")
+    source_user: Optional[str] = Field(None, description="Filter by who the memory is about")
+    top_k: int = Field(10, ge=1, le=100, description="Number of results")
+    threshold: float = Field(0.1, ge=0.0, le=1.0, description="Minimum similarity score")
+
+
+class DeleteMemoryInput(BaseModel):
+    memory_id: str = Field(..., description="UUID of the memory to delete")
+
+
+class SyncMetadataInput(BaseModel):
+    file_path: str = Field(..., description="Absolute path to create/update .memory-context.yaml")
+    project_id: str = Field(..., description="Project identifier to write")
+    tags: List[str] = Field(default_factory=list, description="Default tags for this project")
+    scope_summary: Optional[str] = Field(None, description="Human-readable project summary")
+
+
+class ListProjectsInput(BaseModel):
+    limit: int = Field(100, ge=1, le=1000, description="Maximum number of projects to return")
+
+
+# =====================================================================
+# 5. FILTER CONSTRUCTION HELPER
+# =====================================================================
+
+
+def build_search_filters(
+    tags: List[str],
+    project_id: Optional[str],
+    source_user: Optional[str]
+) -> Dict[str, Any]:
+    """Build search filters for Mem0 based on provided criteria."""
+    conditions = []
+
+    if tags:
+        if len(tags) == 1:
+            conditions.append({"tags": {"contains": tags[0]}})
+        else:
+            tag_conditions = [{"tags": {"contains": tag}} for tag in tags]
+            conditions.append({"OR": tag_conditions})
+
+    if project_id:
+        conditions.append({"project_id": project_id})
+
+    if source_user:
+        conditions.append({"source_user": source_user})
+
+    if len(conditions) == 0:
+        return {}
+    if len(conditions) == 1:
+        return conditions[0]
+    return {"AND": conditions}
+
+
+# =====================================================================
+# 6. TOOL IMPLEMENTATIONS
+# =====================================================================
 
 
 @mcp.tool()
-async def detect_context_drift(current_task: str, chat_history_preview: str, manifest_summary: str) -> str:
-    """
-    Compares the current task against the established project state to warn the user if context is shifting.
-    
-    Args:
-        current_task: What Roo Code is currently trying to accomplish.
-        chat_history_preview: The last few messages to establish intent.
-        manifest_summary: The 'state_summary' from memory-context.json.
-    """
-    system_prompt = (
-        "You are an architectural state monitor. Your job is to compare the "
-        "User's Current Task against the Established Project Summary. "
-        "Respond ONLY with a JSON object containing 'drift_detected' (boolean) "
-        "and 'analysis' (string explaining why)."
-    )
-    
-    user_prompt = (
-        f"Established Summary: {manifest_summary}\n"
-        f"Current Task: {current_task}\n"
-        f"Recent Chat: {chat_history_preview}"
-    )
-    
-    # LLM processes the drift detection
-    analysis_json_str = await ask_local_llm(user_prompt, system_prompt)
-    
-    return f"Context Alignment Check Result:\n{analysis_json_str}"
+def add_memory(
+    content: str,
+    tags: List[str] = None,
+    project_id: Optional[str] = None,
+    source_user: Optional[str] = None,
+    related_files: List[Dict[str, str]] = None,
+    source_path: Optional[str] = None
+) -> str:
+    """Store a new memory with metadata.
 
-
-@mcp.tool()
-async def compact_and_promote(session_transcript: str, project_id: str, active_collections: List[str]) -> str:
-    """
-    Summarizes the current session into permanent facts and saves them to Qdrant via Mem0.
-    
     Args:
-        session_transcript: A summary of the rules, code changes, or decisions made in this session.
-        project_id: The identifier for the current project.
-        active_collections: Tags to attach to this memory (e.g., ["docker", "api"]).
+        content: The memory content to store
+        tags: Vocabulary tags for filtering
+        project_id: Project identifier
+        source_user: Who this memory is about
+        related_files: Files associated with this memory (list of {path, entered})
+        source_path: Directory context at creation
     """
-    # In a production environment, you might want to use the LLM helper here 
-    # to extract "invariants" before passing to Mem0, but Mem0 handles a lot of this natively.
-    
-    metadata = {
-        "project_id": project_id,
-        "collection": active_collections[0] if active_collections else "general"
-    }
-    
     try:
-        # infer=True allows Mem0 to update existing facts rather than duplicating them
-        memory_client.add(
-            session_transcript, 
-            user_id="roo_agent", 
-            metadata=metadata, 
-            infer=True 
+        # Build metadata dict with all fields (None values are explicit, not omitted)
+        metadata: Dict[str, Any] = {
+            "validated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "tags": tags or [],
+            "project_id": project_id,  # None is fine - explicit absence
+            "source_user": source_user,  # None is fine - explicit absence
+            "related_files": related_files or [],
+            "source_path": source_path,  # None is fine - explicit absence
+        }
+
+        result = memory_client.add(
+            content,
+            user_id=AGENT_ID,
+            metadata=metadata,
+            infer=True
         )
-        return f"Successfully compacted and promoted memory to Qdrant for project '{project_id}'."
+
+        # Count created/updated entries
+        created_count = len(result.get("results", []))
+        return f"Memory stored successfully. Created/updated {created_count} entries."
+
     except Exception as e:
-        return f"Failed to promote memory: {str(e)}"
+        return f"Error storing memory: {str(e)}"
 
 
 @mcp.tool()
-async def sync_manifest_state(manifest_path: str, new_state_summary: str, new_collections: List[str]) -> str:
-    """
-    Updates the local memory-context.json file to reflect the new state of the project.
-    
+def search_memory(
+    query: str,
+    tags: List[str] = None,
+    project_id: Optional[str] = None,
+    source_user: Optional[str] = None,
+    top_k: int = 10,
+    threshold: float = 0.1
+) -> str:
+    """Search memories using natural language query.
+
     Args:
-        manifest_path: The absolute or relative path to memory-context.json in the docker container.
-        new_state_summary: The updated high-level summary of the project state.
-        new_collections: The updated list of active tags.
+        query: Natural language search query
+        tags: Filter by tags (OR logic within list)
+        project_id: Filter by project
+        source_user: Filter by who the memory is about
+        top_k: Number of results (1-100)
+        threshold: Minimum similarity score (0.0-1.0)
     """
-    # IMPORTANT: For this to work, the directory containing memory-context.json 
-    # MUST be mounted as a volume in your docker-compose.yml for this service.
-    
-    if not os.path.exists(manifest_path):
-        return f"Error: Manifest file not found at {manifest_path}. Ensure Docker volumes are mounted correctly."
-        
     try:
-        with open(manifest_path, 'r') as f:
-            current_state = json.load(f)
-            
-        current_state['state_summary'] = new_state_summary
-        current_state['active_collections'] = new_collections
-        
-        with open(manifest_path, 'w') as f:
-            json.dump(current_state, f, indent=4)
-            
-        return "Manifest state synchronized successfully."
+        # Build filters
+        filters = build_search_filters(tags or [], project_id, source_user)
+
+        # Search memories
+        results = memory_client.search(
+            query=query,
+            filters=filters,
+            user_id=AGENT_ID,
+            limit=top_k
+        )
+
+        # Filter by threshold manually if needed (Mem0 may not support threshold directly)
+        if threshold > 0:
+            results = [r for r in results if r.get("score", 0) >= threshold]
+
+        if not results:
+            return "No relevant memories found."
+
+        # Format results
+        formatted = "Retrieved Memories:\n"
+        for res in results:
+            memory_id = res.get("id", "unknown")[:8] + "..."  # Truncated ID
+            score = res.get("score", 0)
+            memory_text = res.get("memory", "")
+            if len(memory_text) > 200:
+                memory_text = memory_text[:200] + "..."
+
+            metadata = res.get("metadata", {})
+            project = metadata.get("project_id", "N/A")
+            res_tags = metadata.get("tags", [])
+
+            formatted += f"\n[ID: {memory_id}] Score: {score:.3f}\n"
+            formatted += f"  Content: {memory_text}\n"
+            formatted += f"  Project: {project} | Tags: {', '.join(res_tags) if res_tags else 'none'}\n"
+
+        return formatted
+
     except Exception as e:
-        return f"Failed to sync manifest: {str(e)}"
+        return f"Error searching memories: {str(e)}"
 
 
 @mcp.tool()
-async def forget_specific_fact(memory_id: str) -> str:
-    """
-    Deletes a specific memory from Qdrant if it is hallucinated or permanently outdated.
-    
+def delete_memory(memory_id: str) -> str:
+    """Delete a specific memory by ID.
+
     Args:
-        memory_id: The specific UUID of the memory to delete (obtained via search).
+        memory_id: UUID of the memory to delete
     """
     try:
         memory_client.delete(memory_id)
-        return f"Memory {memory_id} successfully purged from the database."
+        return f"Memory {memory_id} successfully deleted."
     except Exception as e:
-        return f"Failed to delete memory: {str(e)}"
+        return f"Error deleting memory: {str(e)}"
 
+
+@mcp.tool()
+def sync_metadata(
+    file_path: str,
+    project_id: str,
+    tags: List[str] = None,
+    scope_summary: Optional[str] = None
+) -> str:
+    """Create or update a .memory-context.yaml file.
+
+    Args:
+        file_path: Absolute path to create/update .memory-context.yaml
+        project_id: Project identifier to write
+        tags: Default tags for this project
+        scope_summary: Human-readable project summary
+    """
+    try:
+        # Validate file path for security
+        resolved = Path(file_path).resolve()
+
+        # Must end with .memory-context.yaml
+        if resolved.name != ".memory-context.yaml":
+            return "Error: file_path must point to a .memory-context.yaml file"
+
+        # Must be within allowed base directory
+        if not str(resolved).startswith(str(MEMORY_CONTEXT_BASE)):
+            return f"Error: file_path must be within {MEMORY_CONTEXT_BASE}"
+        # Build YAML content
+        yaml_data = {
+            "version": 1,
+            "project_id": project_id,
+            "tags": tags or [],
+        }
+
+        if scope_summary:
+            yaml_data["scope_summary"] = scope_summary
+
+        # Create parent directory if needed
+        parent_dir = resolved.parent
+        if parent_dir and not parent_dir.exists():
+            parent_dir.mkdir(parents=True, exist_ok=True)
+
+        # Write YAML file
+        with open(resolved, "w", encoding="utf-8") as f:
+            yaml.dump(
+                yaml_data,
+                f,
+                sort_keys=False,
+                default_flow_style=False,
+                allow_unicode=True
+            )
+
+        return f"Metadata synchronized to {resolved}"
+
+    except Exception as e:
+        return f"Error synchronizing metadata: {str(e)}"
+
+
+@mcp.tool()
+def list_projects(limit: int = 100) -> str:
+    """List all unique project IDs from stored memories.
+
+    Args:
+        limit: Maximum number of memories to scan (1-1000)
+    """
+    try:
+        # Get all memories for this user
+        # Note: Mem0's get_all method may vary; using search with broad query as fallback
+        try:
+            all_memories = memory_client.get_all(user_id=AGENT_ID, filters={}, limit=limit)
+        except AttributeError:
+            # Fallback: use search with empty/broad query
+            all_memories = memory_client.search(
+                query="*",
+                filters={},
+                user_id=AGENT_ID,
+                limit=limit
+            )
+
+        # Extract unique project_ids from metadata
+        project_ids = set()
+        for memory in all_memories:
+            metadata = memory.get("metadata", {})
+            project_id = metadata.get("project_id")
+            if project_id:
+                project_ids.add(project_id)
+
+        if not project_ids:
+            return "No projects found."
+
+        # Return sorted list
+        sorted_projects = sorted(project_ids)
+        return "Projects:\n" + "\n".join(f"  - {pid}" for pid in sorted_projects)
+
+    except Exception as e:
+        return f"Error listing projects: {str(e)}"
+
+
+# =====================================================================
+# 7. SERVER ENTRY POINT
+# =====================================================================
 
 if __name__ == "__main__":
-    # IMPORTANT: Use transport="sse" or "streamable-http" for network access
-    # Use host="0.0.0.0" to allow connections from outside the container
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=8001)
+    mcp.run(transport="streamable-http", host=HOST, port=PORT)

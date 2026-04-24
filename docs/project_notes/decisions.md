@@ -414,3 +414,37 @@ Architecture Decision Records (ADRs). Immutable — append only. Never delete or
 - ❌ 5 agents to configure vs 3
 - ❌ More delegation steps per feature
 - ❌ Coordinator must scope project context for each expert delegation
+
+---
+
+### ADR-019: v0 Pivot — Working Server Over Directory Structure (2026-04-24)
+
+**Context:**
+- 5 sessions of architecture planning completed, zero running code. Directory structure was next priority but serves HOW, not WHY.
+- User is a contractor building a system that grows with them. Needs to start ingesting permanent memory now, not after more planning.
+- Forward-compatible metadata schema ensures no re-ingest when expanding later.
+
+**Decision:**
+- Pivot from hexagonal directory structure to single-file v0 implementation. 5 tools (add_memory, search_memory, delete_memory, sync_metadata, list_projects) in one `src/main.py`. No ports/adapters. Just working code with forward-compatible data model.
+- Every memory includes full metadata schema from day 1: tags, project_id, source_user, related_files, source_path, validated_at. Future expansions are additive — no re-ingest.
+- Hexagonal refactor deferred to v1.0 (structural only, no functional changes).
+
+**Alternatives Considered:**
+- Continue with directory structure → Rejected: planning-as-procrastination, no working code for 6th session
+- Full v1 (7 tools + hexagonal) → Rejected: too much for one session, delays ingestion further
+- v0 without forward-compat fields → Rejected: guarantees re-ingest later
+
+**Consequences:**
+- ✅ Working MCP server — can start ingesting permanent memory immediately
+- ✅ Forward-compatible — all future expansions are additive, no re-ingest
+- ✅ Validated by 50 tests + code review (2 blockers, 1 major found and fixed)
+- ✅ Hexagonal design preserved as refactor target (not lost)
+- ❌ Single file — will need restructuring as features grow
+- ❌ 2 of 7 v1 tools deferred (validate_memories, audit_stale → v0.1; compact_session → v0.2)
+- ❌ docker-compose.yml and config.json still point to port 8001 (separate fix)
+
+---
+
+### V2 Backlog
+
+- **Expert Persistent Memory**: Once MCP server is built, expert agents could use add_memory/search_memory to persist architectural decisions across sessions. Currently expert sessions are ephemeral (no persistence across OpenCode restarts). Coordinator carries institutional memory via docs/project_notes/.

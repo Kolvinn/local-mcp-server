@@ -67,16 +67,15 @@ Project configuration, constants, and frequently-needed **non-sensitive** inform
 - `STALENESS_WINDOW_DAYS` — Days before memory flagged stale (default: `30`)
 - `HOST` — Server bind address (default: `0.0.0.0`)
 - `PORT` — Server port (default: `8000`, fixes 8001 misalignment)
+- `MEMORY_CONTEXT_BASE` — Base directory for .memory-context.yaml writes (default: `/home/dev/app`)
 
-## V1 MCP Tools (7)
+## V0 MCP Tools (5)
 
-- `add_memory` — Store fact + metadata (tags, source_user, related_files, source_path)
-- `search_memory` — Semantic search + auto-discover `.memory-context.yaml` + staleness/git flags
+- `add_memory` — Store fact + metadata (tags, project_id, source_user, related_files, source_path, validated_at)
+- `search_memory` — Semantic search + metadata filtering (tags, project_id, source_user) + threshold
 - `delete_memory` — Remove by ID
-- `validate_memories` — Re-check flagged, update validated_at or flag for delete
-- `compact_session` — Summarize session → permanent facts (manual or auto-triggered)
-- `audit_stale` — Return stale/drifted memories for review (read-only)
-- `sync_metadata` — Create/update `.memory-context.yaml` at a path
+- `sync_metadata` — Create/update `.memory-context.yaml` at a path (with path validation)
+- `list_projects` — List distinct project_ids from stored memories
 
 ## Local Metadata Spec
 
@@ -105,7 +104,7 @@ Project configuration, constants, and frequently-needed **non-sensitive** inform
 ## Agent Team
 
 - **Coordinator** (primary): opencode-go/glm-5.1 — Orchestrates, tracks goals, user gates, delegates to experts
-- **Expert** (all): opencode-go/kimi-k2.5 — Domain knowledge (FastMCP, Mem0, architecture, ADRs). Baked-in skills. User-switchable.
+- **Expert** (all): opencode-go/kimi-k2.5 — Domain knowledge (FastMCP, Mem0, architecture, ADRs). Lazy-loads skills. Read-only advisor.
 - **Explorer** (subagent): opencode-go/minimax-m2.7 — Read-only scout, file search, pattern discovery
 - **Implementer** (subagent): opencode-go/kimi-k2.5 — Code writing, Python/FastMCP syntax. Receives approved specs only.
 - **Reviewer** (subagent): opencode-go/kimi-k2.5 — Read-only code verification, fox/henhouse prevention
@@ -120,6 +119,22 @@ WHAT → Implementer (code, syntax, implementation)
 
 - Every stage transition requires user approval (no autonomous pipeline)
 - Coordinator asks expert for options → user approves → coordinator delegates to implementer → user approves → reviewer verifies → user signs off
+
+### Agent Config Files
+
+- `opencode.jsonc` — 5 agents defined (coordinator, expert, implementer, explorer, reviewer)
+- `prompts/coordinator.md` — Updated: 3-layer delegation, user gates, @expert delegation
+- `prompts/expert.md` — Domain principles + skill index + anti-staleness rules + read-only
+- `prompts/implementer.md` — Syntax-focused, spec-driven, project conventions
+- `prompts/reviewer.md` — Priority-based review (Blocker/Major/Minor/Suggestion), spec compliance
+- `prompts/explorer.md` — Unchanged from previous session
+- Old `prompts/coder.md` — Deleted by user
+
+### Session Persistence
+
+- Expert sessions (Task tool) are ephemeral — do not persist across OpenCode restarts
+- Coordinator carries institutional memory via `docs/project_notes/`
+- V2: Expert could use MCP server memory to persist architectural decisions across sessions
 
 ### Delegation Mechanisms
 
@@ -151,11 +166,11 @@ WHAT → Implementer (code, syntax, implementation)
 
 ## Source Files
 
-- `src/main.py` — In-process mem0 implementation with Qdrant + Ollama. Needs cleanup (duplicate imports, hardcoded user_id, manifest file approach). Currently runs on port 8001.
-- `main.py` (root) — Minimal FastMCP proxy scaffold. Mounts proxy to `mcp-memory-service:8000/mcp` — broken reference. Runs on port 8001.
-- `src/config.json` — MCP server config. Transport: `streamable-http`. URL: `http://0.0.0.0:8001/mcp`.
-- `docker-compose.yml` — Single service `mcp-server` on `internal-net`. Exposes 8001.
-- `src/pyproject.toml` — Python dependencies
+- `src/main.py` — v0 MCP server. 5 tools (add/search/delete/sync/list), in-process Mem0, 10 env vars, forward-compatible metadata, path validation. Port 8000. 393 lines.
+- `src/test_main.py` — 50 tests: config loading, filter construction, all 5 tools, path validation, no hardcoded values.
+- `src/pyproject.toml` — Python dependencies (fastmcp, mem0ai, httpx, uvicorn, pyyaml, pytest, pydantic, etc.)
+- `src/config.json` — MCP server config. Transport: `streamable-http`. URL: `http://0.0.0.0:8001/mcp`. **STALE — still points to port 8001, needs update.**
+- `docker-compose.yml` — Single service `mcp-server` on `internal-net`. Exposes 8001. **STALE — needs port 8000 update.**
 - `.opencode/memory/` — Legacy memory system (DECISIONS.md, CONTEXT.md, STACK.md, handoff.md). Git-tracked. To be deleted when mem0 takes over.
 
 ---

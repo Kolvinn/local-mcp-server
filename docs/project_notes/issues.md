@@ -29,49 +29,59 @@ Work completed and planned, with ticket references where available. Keep it simp
 - **Description**: Redesigned 3-agent team to 5-agent team with 3-layer delegation (ADR-017/018). Created prompts/expert.md (domain principles + skill index), prompts/implementer.md (syntax-focused), prompts/reviewer.md (priority-based review). Updated coordinator prompt with user gates and @expert delegation. Updated opencode.jsonc with 5 agents.
 - **Notes**: ADR-015/016 superseded by ADR-018/017. Expert bakes domain knowledge only; coordinator passes project context per-task. Delegation flow mapping still needed.
 
+### 2026-04-24 - Session 006: v0 MCP Server Implementation
+- **Status**: Completed
+- **Description**: Pivoted from hexagonal directory structure to working v0 implementation (ADR-019). Replaced old src/main.py with 5-tool MCP server: add_memory, search_memory, delete_memory, sync_metadata, list_projects. 50 tests passing. Forward-compatible metadata schema (tags, project_id, source_user, related_files, source_path, validated_at). Path validation on sync_metadata.
+- **Notes**: Delegation flow worked: explorer→expert→implementer→reviewer→implementer(fixes). User gate at each stage.
+
 ---
 
 ## Planned Work (Priority Order)
+
+### Next: Fix docker-compose.yml & config.json
+- **Status**: Not Started
+- **Description**: Port 8001→8000 in docker-compose, config.json, and Traefik label. Add all 10 env vars to compose.
+- **Priority**: 0e
+
+### Next: Create .env.example
+- **Status**: Not Started
+- **Description**: Document all 10 env vars (9 original + MEMORY_CONTEXT_BASE).
+- **Priority**: 0f
+
+### Next: Smoke Test Against Live Infrastructure
+- **Status**: Not Started
+- **Description**: Run server against live Qdrant + Ollama. Verify add/search/delete/sync/list work end-to-end.
+- **Priority**: 0g
 
 ### Next: Agent Team — Delegation Flow Mapping
 - **Status**: Not Started
 - **Description**: Map what project context the coordinator passes to the expert for each priority implementation item (ADRs, key facts, goal scope).
 - **Priority**: 0c
 
-### Next: Implementation — Directory Structure
+### Next: Agent Team — Plugin Integration
 - **Status**: Not Started
-- **Description**: Set up hexagonal src/ layout per architecture-patterns skill. Domain, use cases, adapters, infrastructure.
+- **Description**: Install opencode-background-agents plugin, test delegate/delegation_read tools for async read-only delegation.
+- **Priority**: 0d
+
+### Next: Validation & Staleness (v0.1)
+- **Status**: Not Started
+- **Description**: On-retrieval staleness checks (validated_at + STALENESS_WINDOW_DAYS), git drift (git log --since on related_files), validate_memories tool, audit_stale tool.
 - **Priority**: 1
 
-### Next: Fix Server Entry Point
+### Next: .memory-context.yaml Discovery (v0.2)
 - **Status**: Not Started
-- **Description**: Single main.py at root, port 8000, remove broken proxy reference, wire Mem0 config from env vars.
+- **Description**: Auto-discover .memory-context.yaml per directory (like .gitignore cascade). Inject project_id + tags into search filters automatically.
 - **Priority**: 2
 
-### Next: Wire Mem0 Integration
-- **Status**: Not Started
-- **Description**: Implement add_memory, search_memory, delete_memory against Mem0 adapter.
-- **Priority**: 3
-
-### Next: Local Metadata Layer
-- **Status**: Not Started
-- **Description**: File discovery adapter, .memory-context.yaml parser, sync_metadata tool.
-- **Priority**: 4
-
-### Next: Validation & Staleness
-- **Status**: Not Started
-- **Description**: On-retrieval checks (validated_at + git log), validate_memories, audit_stale.
-- **Priority**: 5
-
-### Next: compact_session Tool
+### Next: compact_session Tool (v0.2)
 - **Status**: Not Started
 - **Description**: Session summarization → permanent facts via Mem0 + LLM.
-- **Priority**: 6
+- **Priority**: 3
 
-### Next: Add .env.example
+### Next: Hexagonal Refactor (v1.0)
 - **Status**: Not Started
-- **Description**: Document all 9 env vars.
-- **Priority**: 7
+- **Description**: Restructure src/ into domain/, use_cases/, adapters/, infrastructure/ per expert design. No functional changes — purely structural.
+- **Priority**: 4
 
 ---
 
