@@ -44,9 +44,6 @@ services:
     #   sh -c "bunx @modelcontextprotocol/inspector uv --server main.py --config conf.json"
     
 volumes:
-  vscode-extensions:
-    name: vscode-extensions
-    #external: true
   mcp-server:
     name: mcp-server
 

@@ -18,9 +18,9 @@ RUN conda install --name dev1 -c conda-forge python uv
 WORKDIR /home/dev/app/
 
 RUN uv --version
-RUN cd src && uv sync --system
+#RUN cd src && uv sync --system
 #THIS ASSUMES REQUIREMENTS.TXT HAS ALREADY BEEN GENERATED
-#RUN conda run -n dev1 uv pip install -r requirements.txt
+RUN cd src && conda run -n dev1 uv sync --active
 
 
 
