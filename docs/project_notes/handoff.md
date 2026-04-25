@@ -1,0 +1,119 @@
+# Session 007 Handoff
+
+**Date**: 2026-04-25
+**Status**: In progress — blocked on implementation decisions
+
+---
+
+## What Was Accomplished
+
+1. **Read all project memory** (bugs.md, decisions.md, issues.md, key_facts.md) — full context loaded
+2. **Fixed `EMBEDDING_MODEL` default bug** — changed `bge-m3` → `nomic-embed-text` in `src/main.py` + `test_main.py`
+3. **Updated `key_facts.md`** — corrected base image (`framework-opencode`), conda env (`dev1`), deleted `.env` file, embedding model, LLM model dependency note, Dockerfile details, test infrastructure section, proxy architecture note, infer parameter context
+4. **Updated `bugs.md`** — logged EMBEDDING_MODEL default bug and stale .env references
+5. **Created ADR-020** (`decisions.md`) — `infer` parameter for `add_memory`, with full trade-off analysis
+6. **Created ADR-021** (`decisions.md`) — Live ingestion test architecture (11 tests, 3 memories, MCP protocol)
+7. **Updated `issues.md`** — added session 007 entry, added two new priority items (infer param + live test suite)
+8. **Verified 50 unit tests pass** after EMBEDDING_MODEL fix
+9. **Installed project dependencies** via `uv pip install pyproject.toml --system` in conda dev1
+
+---
+
+## Architectural Decision Pending: Fact Extraction Responsibility
+
+### The Core Question
+
+**Where should fact extraction happen — on the server (local LLM) or on the agent side?**
+
+| Approach | Fact Extraction | Local LLM Needed | Fact Quality | VRAM | Latency |
+|----------|-----------------|-------------------|--------------|------|---------|
+| A: Server-side infer | llama3.1:8b via infer=True | Yes (6-8GB) | Decent, not great | Heavy | 3-5s/call |
+| B: Agent-side extraction | Agent model sends pre-extracted facts, infer=False | No — only embedding model (~274MB) | High | Minimal | ~100ms |
+| C: Hybrid | Agent extracts, then server deduplicates via infer=True | Yes | Best (agent quality + server dedup) | Heavy | 3-5s/call |
+
+### Why This Matters
+
+- The primary callers of `add_memory` are LLM agents. They already understand the content.
+- Making a powerful agent model pass raw text to a weaker local model for extraction is architecturally questionable.
+- If default is `infer=False`, the local LLM becomes optional — dropping VRAM from ~8GB to ~300MB.
+- But `infer=False` loses Mem0's automatic deduplication. Agent must handle redundancy.
+- This affects: hardware requirements, deployment footprint, testing strategy, future proxy architecture.
+
+### What's Decided
+
+- `infer` parameter WILL be added (default `True` for backward compat)
+- Both paths WILL be tested in the ingestion test suite
+
+### What's NOT Decided
+
+- Should the default eventually change to `False`?
+- Should the LLM model be optional in deployment (only pulled if `infer=True` is needed)?
+- For agent-driven workflows, should there be a "smart add" that takes pre-extracted facts and still deduplicates against existing memories?
+
+---
+
+## Next Steps (In Order)
+
+1. **Implement `infer` parameter** — Add optional `infer` boolean to `add_memory` in `src/main.py` (default `True`)
+2. **Create `tests/integration/` directory** — New test directory for live infrastructure tests
+3. **Create live ingestion test suite** — 11 tests per ADR-021:
+   - 1: Qdrant connectivity
+   - 2: Ollama nomic-embed-text load
+   - 3: add_memory with infer=False (global)
+   - 4: search_memory by query (semantic)
+   - 5: search_memory by project_id filter
+   - 6: search_memory by tags filter
+   - 7: add_memory with infer=True (LLM extraction)
+   - 8: search_memory on infer=True data
+   - 9: list_projects
+   - 10: delete_memory + search confirms gone
+   - 11: sync_metadata (yaml write + verify)
+4. **Test data**: 3 memories total (2 global, 1 project-scoped). Minimal, proves the pipe.
+5. **Cleanup**: Delete Qdrant collection after tests. Use `AGENT_ID=test_ingest` for isolation.
+6. **Test execution**: Inside Docker on `internal-net`. httpx POST to `/mcp` endpoint.
+
+---
+
+## Test Data Design
+
+### Global Memories (project_id=None)
+
+| # | Content | Tags | source_user | Purpose |
+|---|---------|------|-------------|---------|
+| 1 | "User prefers dark theme in all development tools" | ["user-preference", "ui"] | "user" | Verify global storage |
+| 2 | "Coordinator concluded that agent-side fact extraction is preferred over server-side for production" | ["conclusion", "architecture"] | "coordinator" | Verify agent conclusions |
+
+### Project-Scoped Memory (project_id="test-project")
+
+| # | Content | Tags | source_user | Purpose |
+|---|---------|------|-------------|---------|
+| 3 | "Test project uses nomic-embed-text for embeddings and stores memories in Qdrant" | ["project-context", "architecture"] | "coordinator" | Verify project filtering |
+
+### What's NOT Tested in Phase 1
+
+- Volume/stress testing (60 memories → phase 2)
+- Current-task storage (GitHub/files, not RAG)
+- sync_metadata project_id injection from .memory-context.yaml (v0.2 feature)
+- Staleness checks (v0.1 feature)
+- Performance benchmarks
+
+---
+
+## Environment State
+
+- **Conda env**: `dev1` at `/home/dev/conda/envs/dev1`
+- **Dependencies**: Installed via `uv pip install pyproject.toml --system`
+- **Ollama models pulled**: `nomic-embed-text`, `llama3.1:8b`
+- **Qdrant**: Running on `internal-net` at `qdrant:6333`
+- **.env**: Deleted. All env vars via shell/Docker or defaults in src/main.py.
+
+---
+
+## Files Modified This Session
+
+- `src/main.py` — Changed EMBEDDING_MODEL default from `bge-m3` to `nomic-embed-text`. Pending: `infer` parameter addition.
+- `src/test_main.py` — Updated EMBEDDING_MODEL default assertion to `nomic-embed-text`.
+- `docs/project_notes/bugs.md` — Added EMBEDDING_MODEL bug entry and .env stale reference entry.
+- `docs/project_notes/decisions.md` — Added ADR-020 (infer parameter) and ADR-021 (live ingestion test).
+- `docs/project_notes/issues.md` — Added session 007 entry, new priority items for infer param and live test suite.
+- `docs/project_notes/key_facts.md` — Updated base image, conda env, dependencies, embedding model, LLM model note, .env status, test infrastructure section, infer parameter section, proxy architecture section, source files section.

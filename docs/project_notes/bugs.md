@@ -28,6 +28,18 @@ Bug entries with solutions and prevention notes. Keep entries brief and chronolo
 - **Solution**: Complete rewrite in Session 006 — clean imports, no duplicates, well-structured. **Fixed.**
 - **Prevention**: Always review and clean before committing incremental changes.
 
+### 2026-04-25 - Wrong EMBEDDING_MODEL Default (bge-m3 → nomic-embed-text)
+- **Issue**: `src/main.py` defaulted `EMBEDDING_MODEL` to `bge-m3`, but Ollama only has `nomic-embed-text` pulled. Mismatch would cause embedding failure on any live call.
+- **Root Cause**: Default was set during architecture planning before hardware was configured. No model named `bge-m3` exists on the Ollama server.
+- **Solution**: Changed default to `nomic-embed-text` in src/main.py and test_main.py. **Fixed in Session 007.**
+- **Prevention**: Default env vars must match what's actually deployed on the Ollama server. Document in key_facts.md.
+
+### 2026-04-25 - Stale .env File References
+- **Issue**: .env file was deleted by user during repo cleanup, but project still referenced it as if it existed.
+- **Root Cause**: Repo cleanup removed .env; documentation not updated.
+- **Solution**: Updated key_facts.md to note .env is deleted, env vars set via shell/Docker or defaults. **Fixed in Session 007.**
+- **Prevention**: When deleting config files, update all documentation references immediately.
+
 ---
 
 ## Tips

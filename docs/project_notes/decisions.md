@@ -445,6 +445,71 @@ Architecture Decision Records (ADRs). Immutable — append only. Never delete or
 
 ---
 
+### ADR-020: add_memory `infer` Parameter — Optional, Default True (2026-04-25)
+
+**Context:**
+- `add_memory` was hardcoded with `infer=True`, meaning every call triggers local LLM (llama3.1:8b) fact extraction via Mem0
+- Hardware constraint: RTX 3080 10GB VRAM must hold both nomic-embed-text (~274MB) + llama3.1:8b (~6-8GB)
+- Primary callers are LLM agents (Claude, etc.) that already understand the content and could extract their own facts before sending
+- Local LLM fact extraction is weaker than agent-side extraction but provides automatic deduplication via Mem0
+
+**Decision:**
+- Add `infer` as optional boolean parameter to `add_memory` (default `True` for backward compat)
+- `infer=False` skips LLM fact extraction entirely — only embedding + storage
+- `infer=True` (current behavior) runs local LLM fact extraction with dedup
+- **Open question (pending user decision)**: Should default change to `False` in future since agents are primary callers?
+- When `infer=False`: agent is responsible for extracting facts before calling add_memory. No dedup.
+- When `infer=True`: server does extraction + dedup. Higher VRAM, higher latency, lower fact quality.
+
+**Alternatives Considered:**
+- Keep `infer=True` hardcoded → Rejected: removes control, wastes VRAM when agents are callers
+- Change default to `False` immediately → Rejected: pending broader architectural decision about fact extraction responsibility
+- Remove infer entirely, always do both → Rejected: unnecessary VRAM usage for agent-driven ingestion
+
+**Consequences:**
+- ✅ Immediate: can test base embedding path without LLM
+- ✅ Production: agents can skip LLM extraction when they've already extracted facts
+- ✅ Flexibility: bulk ingestion scripts can still use `infer=True` for automated extraction
+- ❌ `infer=False` loses Mem0's automatic deduplication — agent must handle redundancy
+- ❌ Two code paths to test and maintain
+- ❌ Default `True` means first-time users hit the heavy path
+
+---
+
+### ADR-021: Live Ingestion Test Architecture (2026-04-25)
+
+**Context:**
+- 50 mock tests exist (test_main.py) but zero tests against live infrastructure
+- Need to verify end-to-end: add_memory → Qdrant storage → Ollama embedding → search → delete
+- Test must go through MCP protocol (streamable-http), not direct function calls
+- Future architecture: root main.py becomes proxy server, internal memory server mounts into it
+- Cleanup strategy: delete Qdrant collections, not individual memories. No permanent data until pipe is proven.
+- All services run on `internal-net` Docker network. Tests execute inside Docker.
+- Ollama currently has: nomic-embed-text (embeddings), llama3.1:8b (LLM)
+
+**Decision:**
+- Phase 1 test plan: 11 tests, 3 memories (2 global, 1 project-scoped)
+- Test both `infer=False` (embedding-only) and `infer=True` (LLM extraction) paths
+- Cleanup via Qdrant collection deletion, not individual delete_memory calls
+- Test runner runs inside Docker on `internal-net`
+- Test `AGENT_ID=test_ingest` for isolation from real data
+- Tests via MCP protocol (httpx POST to /mcp), not direct imports
+
+**Alternatives Considered:**
+- Direct function call tests → Rejected: server is consumed via MCP protocol, must test end-to-end
+- 60-memory volume test as phase 1 → Rejected: too much for initial validation, prove the pipe first then scale
+- Cleanup via delete_memory per item → Rejected: Qdrant collection deletion is cleaner and more reliable for test isolation
+- Test from host (outside Docker) → Rejected: production architecture is inside Docker on internal-net
+
+**Consequences:**
+- ✅ Proves end-to-end pipe before any permanent data ingestion
+- ✅ Two infer paths tested independently (embedding-only vs LLM extraction)
+- ✅ Clean test isolation via AGENT_ID and collection deletion
+- ❌ Requires Docker environment to be running for tests
+- ❌ Requires Ollama models pulled before tests will pass
+
+---
+
 ### V2 Backlog
 
 - **Expert Persistent Memory**: Once MCP server is built, expert agents could use add_memory/search_memory to persist architectural decisions across sessions. Currently expert sessions are ephemeral (no persistence across OpenCode restarts). Coordinator carries institutional memory via docs/project_notes/.

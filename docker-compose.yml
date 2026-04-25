@@ -14,8 +14,8 @@ services:
      # - ALLOWED_ORIGINS=https://mcp-server.local.net,https://mcp-server,http://127.0.0.1:6274,http://localhost:6274,http://127.0.0.1:8000,http://localhost:8000
     user: "1000:1000"
     volumes:
-      - mcp-server:/home/dev/app
-      - vscode-extensions:/home/dev/.vscode-server/extensions
+      - mcp-server:/home/dev
+     # - vscode-extensions:/home/dev/.vscode-server/extensions
 
     labels:
       - "traefik.enable=true"

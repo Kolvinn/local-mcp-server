@@ -49,8 +49,8 @@ class TestConfigLoading:
         assert main.OLLAMA_URL == "http://ollama:11434"
 
     def test_embedding_model_default(self):
-        """EMBEDDING_MODEL defaults to bge-m3."""
-        assert main.EMBEDDING_MODEL == "bge-m3"
+        """EMBEDDING_MODEL defaults to nomic-embed-text."""
+        assert main.EMBEDDING_MODEL == "nomic-embed-text"
 
     def test_llm_model_default(self):
         """LLM_MODEL defaults to llama3.1:8b."""

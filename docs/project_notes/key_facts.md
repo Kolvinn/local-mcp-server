@@ -19,22 +19,23 @@ Project configuration, constants, and frequently-needed **non-sensitive** inform
 
 ## Runtime Stack
 
-- **Language (Primary)**: Python 3.14+
+- **Language (Primary)**: Python 3 (conda env `dev1`)
 - **Language (Secondary)**: TypeScript/Bun — placeholder only, `src/index.ts` is dead code
 - **MCP Framework**: FastMCP 3.2.4+
 - **Web Framework**: FastAPI 0.136+
 - **ASGI Server**: Uvicorn 0.44+
 - **HTTP Client**: httpx 0.28+
-- **Memory SDK**: mem0ai (latest, in pyproject.toml, not yet wired in code)
-- **Env Vars**: python-dotenv 1.2+
-- **Package Manager**: uv (latest, installed via conda)
+- **Memory SDK**: mem0ai (latest, in pyproject.toml, wired in src/main.py via in-process import)
+- **Env Vars**: python-dotenv 1.2+ (no .env file currently exists — env set via shell/Docker)
+- **Package Manager**: uv (installed via conda-forge, uses `uv pip install pyproject.toml --system`)
 - **JS Runtime**: Bun (available via conda, unused for core logic)
 
 ## Infrastructure
 
-- **Base Image**: `framework-base:latest` — custom, conda-based. NOT on Docker Hub. Must be pre-built.
+- **Base Image**: `framework-opencode:latest` — custom, conda-based. NOT on Docker Hub. Must be pre-built.
+- **Conda Environment**: `dev1` at `/home/dev/conda/envs/dev1`
 - **Container Name**: `mcp-server`
-- **Container Mount**: `/home/dev/app` → volume `mcp-server`
+- **Container Mount**: `/home/dev/app` → copied into container at build time (COPY --chown=dev:dev ./dev/mcp-server/)
 - **Network**: `internal-net` (external Docker network, shared by all containers)
 - **Reverse Proxy**: Traefik (labels-based routing)
 - **User**: `dev:1000:1000`
@@ -46,7 +47,7 @@ Project configuration, constants, and frequently-needed **non-sensitive** inform
 |---------|---------------|-------|
 | mcp-server | **8000** (target serving port) | User connects directly to 8000 |
 | mcp-memory-service | 8000 | Referenced in root main.py — no container provides it yet (broken reference) |
-| mcp-server (compose) | 8001 | Currently misaligned with serving port 8000 — needs fix |
+| mcp-server (compose) | 8001 | Currently misaligned with serving port 8000 — needs fix in docker-compose.yml |
 | Traefik label | 6274 | Vestigial, was for MCP Inspector UI on host. No longer used. |
 | Qdrant | 6333 | User-managed, external to this repo |
 | Ollama | 11434 | User-managed, external to this repo |
@@ -54,15 +55,15 @@ Project configuration, constants, and frequently-needed **non-sensitive** inform
 ## External Infrastructure (User-Managed)
 
 - **Qdrant**: Vector store. User ensures it's running at `QDRANT_HOST`:`QDRANT_PORT`. Not in this repo's compose.
-- **Ollama**: LLM + embeddings. User ensures it's running at `OLLAMA_URL`. Embedding model: `bge-m3` (configurable via `EMBEDDING_MODEL`). Not in this repo's compose.
+- **Ollama**: LLM + embeddings. User ensures it's running at `OLLAMA_URL`. Currently only `nomic-embed-text` is pulled. LLM model (`llama3.1:8b`) needs to be pulled before `add_memory` with `infer=True` will work. Not in this repo's compose.
 
 ## Environment Variables
 
 - `QDRANT_HOST` — Qdrant server hostname (default: `qdrant`)
 - `QDRANT_PORT` — Qdrant server port (default: `6333`)
 - `OLLAMA_URL` — Ollama server URL (default: `http://ollama:11434`)
-- `EMBEDDING_MODEL` — Embedding model (default: `bge-m3`)
-- `LLM_MODEL` — LLM for fact extraction + compact_session (default: `llama3.1:8b`)
+- `EMBEDDING_MODEL` — Embedding model (default: `nomic-embed-text`)
+- `LLM_MODEL` — LLM for fact extraction + compact_session (default: `llama3.1:8b`). **Must be pulled in Ollama before use.**
 - `AGENT_ID` — user_id for Mem0, who created the memory (default: `default_agent`)
 - `STALENESS_WINDOW_DAYS` — Days before memory flagged stale (default: `30`)
 - `HOST` — Server bind address (default: `0.0.0.0`)
@@ -71,11 +72,20 @@ Project configuration, constants, and frequently-needed **non-sensitive** inform
 
 ## V0 MCP Tools (5)
 
-- `add_memory` — Store fact + metadata (tags, project_id, source_user, related_files, source_path, validated_at)
+- `add_memory` — Store fact + metadata (tags, project_id, source_user, related_files, source_path, validated_at). **Pending: adding `infer` param (ADR-020)**
 - `search_memory` — Semantic search + metadata filtering (tags, project_id, source_user) + threshold
 - `delete_memory` — Remove by ID
 - `sync_metadata` — Create/update `.memory-context.yaml` at a path (with path validation)
 - `list_projects` — List distinct project_ids from stored memories
+
+## Infer Parameter (ADR-020)
+
+- `add_memory` current: `infer=True` hardcoded — every call triggers local LLM fact extraction
+- `add_memory` pending: `infer` as optional boolean param (default `True`)
+- `infer=True` → LLM extracts structured facts from raw content. Automatic dedup via Mem0. Heavy VRAM.
+- `infer=False` → Agent pre-extracts facts, server only embeds + stores. No dedup. Lightweight.
+- **Open question**: Should default change to `False` since agents are primary callers? Pending user decision.
+- **Architecture implication**: If default becomes `False`, local LLM model becomes optional (only needed for bulk inference scripts), cutting VRAM from ~8GB to ~300MB
 
 ## Local Metadata Spec
 
@@ -88,6 +98,15 @@ Project configuration, constants, and frequently-needed **non-sensitive** inform
 - `user_id` — who created (AGENT_ID env var)
 - `project_id` — what project (from `.memory-context.yaml`)
 - `source_user` — who it's about (optional, for business partners/clients)
+
+## Test Infrastructure
+
+- **Unit tests**: `src/test_main.py` — 50 mock tests, no live infrastructure. Pass.
+- **Live ingestion tests**: Not yet created. Planned: `tests/integration/test_live_ingestion.py`
+- **Test runner**: Inside Docker on `internal-net`. Must be on same network as Qdrant + Ollama.
+- **Test cleanup**: Delete Qdrant collection, not individual memories. No permanent data until pipe is proven.
+- **Test isolation**: `AGENT_ID=test_ingest` for live tests, separate from production data.
+- **Dependencies**: Must run `uv pip install pyproject.toml --system` in `dev1` conda env before testing.
 
 ## V2 Deferred
 
@@ -166,12 +185,22 @@ WHAT → Implementer (code, syntax, implementation)
 
 ## Source Files
 
-- `src/main.py` — v0 MCP server. 5 tools (add/search/delete/sync/list), in-process Mem0, 10 env vars, forward-compatible metadata, path validation. Port 8000. 393 lines.
-- `src/test_main.py` — 50 tests: config loading, filter construction, all 5 tools, path validation, no hardcoded values.
+- `src/main.py` — v0 MCP server. 5 tools (add/search/delete/sync/list), in-process Mem0, forward-compatible metadata, path validation. Port 8000. `infer=True` hardcoded (pending ADR-020 change).
+- `src/test_main.py` — 50 tests: config loading, filter construction, all 5 tools, path validation, no hardcoded values. Mock-based, no live infra.
+- `tests/integration/` — Not yet created. Will contain live ingestion tests per ADR-021.
 - `src/pyproject.toml` — Python dependencies (fastmcp, mem0ai, httpx, uvicorn, pyyaml, pytest, pydantic, etc.)
 - `src/config.json` — MCP server config. Transport: `streamable-http`. URL: `http://0.0.0.0:8001/mcp`. **STALE — still points to port 8001, needs update.**
 - `docker-compose.yml` — Single service `mcp-server` on `internal-net`. Exposes 8001. **STALE — needs port 8000 update.**
+- `Dockerfile` — Builds from `framework-opencode:latest`, conda env `dev1`, uv pip install.
+- `.env` — **Deleted.** No .env file exists. Env vars set via shell/Docker or defaults in src/main.py.
 - `.opencode/memory/` — Legacy memory system (DECISIONS.md, CONTEXT.md, STACK.md, handoff.md). Git-tracked. To be deleted when mem0 takes over.
+
+## Future Architecture (Proxy Pattern)
+
+- Root `main.py` → proxy server that mounts internal memory service
+- `src/main.py` → internal memory service (current v0 server)
+- This allows the memory MCP server to be one of many services behind a single proxy endpoint
+- Not yet implemented — current focus is proving the ingestion pipe first
 
 ---
 

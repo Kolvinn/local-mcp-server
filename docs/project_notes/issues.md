@@ -34,6 +34,11 @@ Work completed and planned, with ticket references where available. Keep it simp
 - **Description**: Pivoted from hexagonal directory structure to working v0 implementation (ADR-019). Replaced old src/main.py with 5-tool MCP server: add_memory, search_memory, delete_memory, sync_metadata, list_projects. 50 tests passing. Forward-compatible metadata schema (tags, project_id, source_user, related_files, source_path, validated_at). Path validation on sync_metadata.
 - **Notes**: Delegation flow worked: explorer→expert→implementer→reviewer→implementer(fixes). User gate at each stage.
 
+### 2026-04-25 - Session 007: Live Ingestion Test Planning
+- **Status**: In Progress
+- **Description**: Planned live infrastructure smoke test for all 5 MCP tools. Discovered EMBEDDING_MODEL default mismatch (bge-m3 → nomic-embed-text), fixed. Proposed adding `infer` parameter to `add_memory` (ADR-020). Designed 11-test ingestion plan (ADR-021). Key architectural question emerged: should fact extraction happen server-side (infer=True, local LLM) or agent-side (infer=False, agent pre-extracts facts)?
+- **Notes**: Test must go through MCP protocol, not direct function calls. Cleanup via Qdrant collection deletion. Ollama has nomic-embed-text + llama3.1:8b pulled. Dependencies must be installed via `uv pip install` in conda dev1 env.
+
 ---
 
 ## Planned Work (Priority Order)
@@ -45,12 +50,17 @@ Work completed and planned, with ticket references where available. Keep it simp
 
 ### Next: Create .env.example
 - **Status**: Not Started
-- **Description**: Document all 10 env vars (9 original + MEMORY_CONTEXT_BASE).
+- **Description**: Document all 10 env vars (9 original + MEMORY_CONTEXT_BASE). Note: .env was deleted; this would be a template only.
 - **Priority**: 0f
 
-### Next: Smoke Test Against Live Infrastructure
+### Next: Add `infer` Parameter to add_memory
 - **Status**: Not Started
-- **Description**: Run server against live Qdrant + Ollama. Verify add/search/delete/sync/list work end-to-end.
+- **Description**: Add `infer` as optional boolean param to `add_memory` (default True). Enables testing embedding-only path and agent-side fact extraction. See ADR-020.
+- **Priority**: 0h
+
+### Next: Live Ingestion Test Suite
+- **Status**: Not Started
+- **Description**: Create `tests/integration/test_live_ingestion.py` — 11 tests across 5 tools + both infer paths. Test via MCP streamable-http protocol. Cleanup via Qdrant collection deletion. See ADR-021.
 - **Priority**: 0g
 
 ### Next: Agent Team — Delegation Flow Mapping
