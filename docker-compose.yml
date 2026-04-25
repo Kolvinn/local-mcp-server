@@ -46,7 +46,7 @@ services:
 volumes:
   vscode-extensions:
     name: vscode-extensions
-    external: true
+    #external: true
   mcp-server:
     name: mcp-server
 
