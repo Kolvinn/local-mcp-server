@@ -123,6 +123,29 @@
           "*": "deny"
         }
       }
+    },
+    "agent-creator": {
+      "description": "Collaborative agent designer — helps create new agents through iterative refinement with the user.",
+      "mode": "all",
+      "model": "opencode-go/minimax-m2.7",
+      "prompt": "{file:./prompts/agent-creator.md}",
+      "permission": {
+        "bash": {
+          ".agents/skills/agent-development/scripts/*": "allow",
+          "*": "deny"
+        },
+        "read": "ask",
+        "write": "ask",
+        "glob": "allow",
+        "grep": "allow",
+        "task": {
+          "expert": "allow",
+          "implementer": "allow",
+          "explorer": "allow",
+          "reviewer": "allow",
+          "*": "ask"
+        }
+      }
     }
   }
 }
