@@ -510,6 +510,44 @@ Architecture Decision Records (ADRs). Immutable — append only. Never delete or
 
 ---
 
+### ADR-022: Delegation Protocol Fix — Expert Spec Flow, User Gates, Wide Before Deep (2026-04-27)
+
+**Context:**
+- Coordinator (product_owner) was violating protocol by: (1) giving implementer specific code instructions, (2) skipping expert for architectural decisions, (3) not maintaining session continuity
+- Prompt misalignment: expert wrote full specs before user approval; no clear rule about when to go wide vs deep
+- opencode.jsonc is source of truth for permissions/models, but prompts had duplicate YAML frontmatter
+
+**Decision:**
+- Expert goes **wide before deep**: condensed options first, full spec only AFTER user approval
+- Expert writes tech spec to `docs/specs/{feature_name}.md`, sends coordinator only a **summary** (not full spec)
+- Coordinator NEVER reads the spec file — summary is sufficient for tracking
+- Coordinator relays spec file location + summary to implementer
+- 3 explicit approval gates: (1) approve option → (2) approve spec → (3) approve implementation
+- Session continuity: always pass `task_id` to continue expert sessions instead of cold-starting
+- I NEVER write code — state goals/constraints/outcomes only
+- YAML frontmatter removed from prompts/expert.md and prompts/implementer.md (opencode.jsonc is source of truth)
+
+**Prompts Updated:**
+- `prompts/product_owner.md`: Added approval gates section, session continuity, iterative clarification (wide before deep), "I never write code" rule, direct delegation threshold
+- `prompts/expert.md`: Wide before deep protocol, spec file output, summary-only to coordinator
+- `prompts/implementer.md`: Receives spec file location + summary (not context dumps), reads spec file directly
+
+**Alternatives Considered:**
+- Keep code instruction to implementer → Rejected: I have no domain expertise, can't architect correctly
+- Expert sends full spec to coordinator → Rejected: bloats coordinator context, defeats purpose of spec file
+- Cold-start expert each time → Rejected: wasteful, repeated initialization
+- Skip user gates → Rejected: user must approve at each stage
+
+**Consequences:**
+- ✅ Cleaner separation: why (coordinator) / how (expert) / what (implementer)
+- ✅ User in loop at every decision point
+- ✅ Expert sessions efficient via task_id continuity
+- ✅ Specs stored in docs/specs/ for future reference
+- ❌ More round-trips per feature
+- ❌ Coordinator must trust expert spec without reading it
+
+---
+
 ### V2 Backlog
 
 - **Expert Persistent Memory**: Once MCP server is built, expert agents could use add_memory/search_memory to persist architectural decisions across sessions. Currently expert sessions are ephemeral (no persistence across OpenCode restarts). Coordinator carries institutional memory via docs/project_notes/.

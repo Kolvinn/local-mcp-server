@@ -31,6 +31,37 @@
         }
       }
     },
+    "product_owner": {
+      "description": "Use this agent when the user wants strategic direction on a project, needs help prioritizing work, or wants to understand why something should be built a certain way. Single point of contact — all project direction communication flows through it. Project-agnostic.",
+      "mode": "primary",
+      "model": "opencode-go/glm-5.1",
+      "prompt": "{file:./prompts/product_owner.md}",
+      "permission": {
+        "bash": {
+          "python3 *": "ask",
+          "pip *": "ask",
+          "pytest *": "ask",
+          "npm *": "ask",
+          "node *": "ask",
+          "curl *": "ask",
+          "wget *": "ask",
+          "git status": "ask",
+          "git diff *": "ask",
+          "git log *": "ask",
+          "*": "ask"
+        },
+        "read": "ask",
+        "webfetch": "ask",
+        "websearch": "ask",
+        "task": {
+          "*": "deny",
+          "expert": "ask",
+          "implementer": "ask",
+          "explorer": "ask",
+          "reviewer": "ask"
+        }
+      }
+    },
     "expert": {
       "description": "Domain expert — MCP server architecture, Mem0 integration, Python backend patterns. Returns condensed options. Read-only advisor with lazy skill loading.",
       "mode": "all",
@@ -83,7 +114,7 @@
     "explorer": {
       "description": "Context gathering agent. Directory scans, file searches, grep, project mapping. Fast, efficient, read-only.",
       "mode": "subagent",
-      "model": "opencode-go/minimax-m2.7",
+      "model": "opencode-go/deepseek-v4-flash",
       "prompt": "{file:./prompts/explorer.md}",
       "permission": {
         "bash": {

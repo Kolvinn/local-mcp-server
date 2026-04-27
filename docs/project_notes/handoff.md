@@ -117,3 +117,105 @@
 - `docs/project_notes/decisions.md` — Added ADR-020 (infer parameter) and ADR-021 (live ingestion test).
 - `docs/project_notes/issues.md` — Added session 007 entry, new priority items for infer param and live test suite.
 - `docs/project_notes/key_facts.md` — Updated base image, conda env, dependencies, embedding model, LLM model note, .env status, test infrastructure section, infer parameter section, proxy architecture section, source files section.
+
+---
+
+# Session 008 Handoff (Side Track — Agentic Protocol)
+
+**Date**: 2026-04-27
+**Status**: Completed — main project work (infer param + test suite) still pending
+
+---
+
+## What Was Accomplished
+
+1. **Identified delegation protocol violations** — Coordinator was giving implementer specific code instructions, skipping expert, not maintaining session continuity
+2. **Revised `prompts/product_owner.md`** — Added approval gates (3 gates), session continuity (task_id), iterative clarification (wide before deep), "I never write code" rule, direct delegation threshold guidance
+3. **Revised `prompts/expert.md`** — Added wide-before-deep protocol, tech spec file output (`docs/specs/{feature}.md`), summary-only to coordinator, session continuity
+4. **Revised `prompts/implementer.md`** — Updated to receive spec file location + summary (not context dumps), reads spec file directly
+5. **Removed YAML frontmatter** — Cleaned up duplicate metadata from expert/implementer prompts (opencode.jsonc is source of truth)
+6. **Created `docs/specs/.gitkeep`** — Directory for future tech specs
+7. **Updated `docs/project_notes/decisions.md`** — Added ADR-022 (delegation protocol fix)
+8. **Updated `docs/project_notes/issues.md`** — Added session entry noting side track
+
+---
+
+## Side Track Summary
+
+This session was a **side track from the main project** (live ingestion test suite). The main work from Session 007 is still pending:
+
+- ❌ `infer` parameter not yet implemented (expert spec needed)
+- ❌ Live ingestion test suite not yet created
+
+### Why This Mattered
+
+The coordinator (product_owner) was violating its own protocol:
+- Told implementer exactly what code to write ("add `infer: bool = True` to function signature")
+- Skipped expert when expert was required for architectural decisions
+- Didn't use task_id for session continuity
+- Gave implementer specific instructions instead of goals/constraints
+
+If uncorrected, this would have led to: incorrect architecture, wasted implementer work, context bloat.
+
+---
+
+## Protocol Changes Summary
+
+### Flow with Approval Gates
+
+```
+User → Me (goal understanding)
+         ↓
+       Expert (condensed options: "here are 2-3 approaches with trade-offs")
+         ↓
+       **USER APPROVES** ← Gate 1
+         ↓
+       Expert (writes tech spec to `docs/specs/{feature}.md`, sends me summary only)
+         ↓
+       **USER APPROVES** ← Gate 2
+         ↓
+       Implementer (reads spec file, writes code)
+         ↓
+       **USER APPROVES** ← Gate 3
+         ↓
+       Done
+```
+
+### Key Rules
+
+1. **I NEVER write code** — State goals, constraints, outcomes only
+2. **Expert goes wide before deep** — Condensed options first, full spec after approval
+3. **Expert writes spec to file** — `docs/specs/{feature}.md`, sends me summary only
+4. **I don't read the spec file** — Summary is sufficient for tracking
+5. **Session continuity** — Always pass `task_id` to continue expert sessions
+6. **opencode.jsonc is source of truth** — Permissions/models/descriptions live there, not in prompt files
+
+---
+
+## Next Steps (Back to Main Project)
+
+1. **Implement `infer` parameter** — Follow the new protocol:
+   - Call expert (with task_id) for condensed options
+   - User approves approach
+   - Expert writes spec to `docs/specs/infer_param.md`
+   - User approves spec
+   - Implementer writes code
+   - User approves implementation
+
+2. **Create live ingestion test suite** — Same protocol:
+   - Expert provides options for test architecture
+   - User approves
+   - Expert writes spec
+   - User approves
+   - Implementer creates `tests/integration/` + 11 tests
+
+---
+
+## Files Modified This Session
+
+- `prompts/product_owner.md` — Added approval gates section, session continuity, iterative clarification, "I never write code" rule
+- `prompts/expert.md` — Added wide-before-deep protocol, spec file output, session continuity. Removed YAML frontmatter.
+- `prompts/implementer.md` — Updated to receive spec file + summary. Removed YAML frontmatter.
+- `docs/specs/.gitkeep` — Created specs directory
+- `docs/project_notes/decisions.md` — Added ADR-022 (delegation protocol fix)
+- `docs/project_notes/issues.md` — Added side track session entry

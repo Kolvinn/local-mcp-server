@@ -45,9 +45,8 @@ Project configuration, constants, and frequently-needed **non-sensitive** inform
 
 | Service | Internal Port | Notes |
 |---------|---------------|-------|
-| mcp-server | **8000** (target serving port) | User connects directly to 8000 |
-| mcp-memory-service | 8000 | Referenced in root main.py — no container provides it yet (broken reference) |
-| mcp-server (compose) | 8001 | Currently misaligned with serving port 8000 — needs fix in docker-compose.yml |
+| mcp-server | **8000** (target serving port) | Proxy serves here, memory service attached behind |
+| mcp-memory-service | 8000 | Internal memory MCP server (src/main.py) |
 | Traefik label | 6274 | Vestigial, was for MCP Inspector UI on host. No longer used. |
 | Qdrant | 6333 | User-managed, external to this repo |
 | Ollama | 11434 | User-managed, external to this repo |
@@ -102,11 +101,14 @@ Project configuration, constants, and frequently-needed **non-sensitive** inform
 ## Test Infrastructure
 
 - **Unit tests**: `src/test_main.py` — 50 mock tests, no live infrastructure. Pass.
-- **Live ingestion tests**: Not yet created. Planned: `tests/integration/test_live_ingestion.py`
-- **Test runner**: Inside Docker on `internal-net`. Must be on same network as Qdrant + Ollama.
-- **Test cleanup**: Delete Qdrant collection, not individual memories. No permanent data until pipe is proven.
-- **Test isolation**: `AGENT_ID=test_ingest` for live tests, separate from production data.
+- **Live ingestion tests**: `tests/integration/test_live_ingestion.py` — 11 tests, real workflow, live Qdrant + Ollama
+- **Test runner**: Inside Docker on `internal-net`. httpx POST to proxy endpoint.
+- **HTTP target**: `http://mcp-server:PORT/mcp` — proxy mounts memory service backend. Tests hit proxy, proxy forwards to memory service.
+- **Test cleanup**: Delete Qdrant collection after test suite completes (all test memories wiped).
+- **Test isolation**: `AGENT_ID=test_ingest_{uuid}` for live tests, separate from production data.
+- **Real workflow**: All 11 tests use real Mem0 client, real Qdrant, real Ollama (nomic-embed-text + llama3.1:8b). No mocks.
 - **Dependencies**: Must run `uv pip install pyproject.toml --system` in `dev1` conda env before testing.
+- **No new envs**: Do not create new environments within the project folder. Use existing `dev1`.
 
 ## V2 Deferred
 
@@ -131,7 +133,7 @@ Project configuration, constants, and frequently-needed **non-sensitive** inform
 ### Delegation Model: 3-Layer with User Gates
 
 ```
-WHY  → Coordinator (goals, decisions, user sign-offs)
+WHY  → Coordinator (goals, decisions, user sign-offs) (OUTDATED -> Product_owner succeeeds)
 HOW  → Expert (domain knowledge, options, specifications)
 WHAT → Implementer (code, syntax, implementation)
 ```
@@ -142,7 +144,7 @@ WHAT → Implementer (code, syntax, implementation)
 ### Agent Config Files
 
 - `opencode.jsonc` — 5 agents defined (coordinator, expert, implementer, explorer, reviewer)
-- `prompts/coordinator.md` — Updated: 3-layer delegation, user gates, @expert delegation
+- `prompts/coordinator.md` — Updated: 3-layer delegation, user gates, @expert delegation (OUTDATED)
 - `prompts/expert.md` — Domain principles + skill index + anti-staleness rules + read-only
 - `prompts/implementer.md` — Syntax-focused, spec-driven, project conventions
 - `prompts/reviewer.md` — Priority-based review (Blocker/Major/Minor/Suggestion), spec compliance
@@ -178,7 +180,7 @@ WHAT → Implementer (code, syntax, implementation)
 
 - **Do NOT** use Node.js/npx — use conda + bun
 - **Do NOT** rely on `src/index.ts` — dead code
-- **Do NOT** hardcode secrets — use `.env` files (gitignored)
+- **Do NOT** hardcode secrets 
 - **Do NOT** use "roo_agent" as user_id — stale, from Roo Code era
 - **Do NOT** exceed 10GB VRAM / 32GB RAM
 - **Do NOT** add auth/multi-tenancy — single user only
@@ -189,18 +191,19 @@ WHAT → Implementer (code, syntax, implementation)
 - `src/test_main.py` — 50 tests: config loading, filter construction, all 5 tools, path validation, no hardcoded values. Mock-based, no live infra.
 - `tests/integration/` — Not yet created. Will contain live ingestion tests per ADR-021.
 - `src/pyproject.toml` — Python dependencies (fastmcp, mem0ai, httpx, uvicorn, pyyaml, pytest, pydantic, etc.)
-- `src/config.json` — MCP server config. Transport: `streamable-http`. URL: `http://0.0.0.0:8001/mcp`. **STALE — still points to port 8001, needs update.**
-- `docker-compose.yml` — Single service `mcp-server` on `internal-net`. Exposes 8001. **STALE — needs port 8000 update.**
+- `src/config.json` — MCP server config. Transport: `streamable-http`. URL: `http://0.0.0.0:PORT/mcp`.
 - `Dockerfile` — Builds from `framework-opencode:latest`, conda env `dev1`, uv pip install.
 - `.env` — **Deleted.** No .env file exists. Env vars set via shell/Docker or defaults in src/main.py.
 - `.opencode/memory/` — Legacy memory system (DECISIONS.md, CONTEXT.md, STACK.md, handoff.md). Git-tracked. To be deleted when mem0 takes over.
 
-## Future Architecture (Proxy Pattern)
+## Future Architecture (Proxy Pattern) — IN PROGRESS
 
-- Root `main.py` → proxy server that mounts internal memory service
+- Root `main.py` → proxy server that mounts internal memory service at `http://mcp-memory-service:8000/mcp`
 - `src/main.py` → internal memory service (current v0 server)
+- **Proxy endpoint**: `http://mcp-server:PORT/mcp` — external clients connect here
+- Memory service attached as backend: `mcp.mount(create_proxy("http:mcp-memory-service:8000/mcp"), namespace="remote_api")`
 - This allows the memory MCP server to be one of many services behind a single proxy endpoint
-- Not yet implemented — current focus is proving the ingestion pipe first
+- Current focus: proving the ingestion pipe first, then wiring up proxy
 
 ---
 

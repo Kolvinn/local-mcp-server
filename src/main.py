@@ -175,7 +175,8 @@ def add_memory(
     project_id: Optional[str] = None,
     source_user: Optional[str] = None,
     related_files: List[Dict[str, str]] = None,
-    source_path: Optional[str] = None
+    source_path: Optional[str] = None,
+    infer: bool = True
 ) -> str:
     """Store a new memory with metadata.
 
@@ -186,6 +187,7 @@ def add_memory(
         source_user: Who this memory is about
         related_files: Files associated with this memory (list of {path, entered})
         source_path: Directory context at creation
+        infer: Whether to infer additional metadata from content (default: True)
     """
     try:
         # Build metadata dict with all fields (None values are explicit, not omitted)
@@ -202,7 +204,7 @@ def add_memory(
             content,
             user_id=AGENT_ID,
             metadata=metadata,
-            infer=True
+            infer=infer
         )
 
         # Count created/updated entries

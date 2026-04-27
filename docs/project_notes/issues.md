@@ -34,6 +34,11 @@ Work completed and planned, with ticket references where available. Keep it simp
 - **Description**: Pivoted from hexagonal directory structure to working v0 implementation (ADR-019). Replaced old src/main.py with 5-tool MCP server: add_memory, search_memory, delete_memory, sync_metadata, list_projects. 50 tests passing. Forward-compatible metadata schema (tags, project_id, source_user, related_files, source_path, validated_at). Path validation on sync_metadata.
 - **Notes**: Delegation flow worked: explorer→expert→implementer→reviewer→implementer(fixes). User gate at each stage.
 
+### 2026-04-27 - Session: Agentic Protocol Fix (Side Track)
+- **Status**: Completed
+- **Description**: Fixed delegation protocol misalignment. Coordinator (product_owner) was violating protocol by giving implementer specific code instructions and skipping expert. Revised prompts: product_owner.md (approval gates, session continuity, "I never write code"), expert.md (wide before deep, spec file output), implementer.md (receives spec file + summary). Removed YAML frontmatter from prompts (opencode.jsonc is source of truth). ADR-022 recorded.
+- **Notes**: This was a side track from main project (test suite). Original work (infer param + live tests) still pending.
+
 ### 2026-04-25 - Session 007: Live Ingestion Test Planning
 - **Status**: In Progress
 - **Description**: Planned live infrastructure smoke test for all 5 MCP tools. Discovered EMBEDDING_MODEL default mismatch (bge-m3 → nomic-embed-text), fixed. Proposed adding `infer` parameter to `add_memory` (ADR-020). Designed 11-test ingestion plan (ADR-021). Key architectural question emerged: should fact extraction happen server-side (infer=True, local LLM) or agent-side (infer=False, agent pre-extracts facts)?
