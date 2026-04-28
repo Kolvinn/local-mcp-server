@@ -6,10 +6,36 @@
       "sourceType": "github",
       "computedHash": "4931c2867890bfef5881225adb691c3d719fe9ad556e3d5fae15f83e0668fa60"
     },
+    "agent-pseudocode": {
+      "source": "ruvnet/ruflo",
+      "sourceType": "github",
+      "computedHash": "4fcc8138b96a094fe7f935559adbd92f7fa2c4d7c1fd4d8c54e9939fdd74088f"
+    },
     "architecture-patterns": {
       "source": "wshobson/agents",
       "sourceType": "github",
       "computedHash": "cf81f4523a2fd3017590cf2792fe305e4375d2f75d22037b92f05852e22feae2"
+    },
+    "context7": {
+      "source": "intellectronica/agent-skills",
+      "sourceType": "github",
+      "computedHash": "fccbea654f8e35824a8bdce3e059e206efeb6c1fab9f6c096c3867e761081983"
+    },
+    "create-specification": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "45b9ef98b0fb82ba0e1aee65dfb464fa1f8494a14a557b9788d73aae87e9e618"
+    },
+    "critical-thinking-logical-reasoning": {
+      "source": "sammcj/agentic-coding",
+      "sourceType": "github",
+      "computedHash": "6e5b193215ac5ddcc0fe6e0088f4a67374b57cb02463a3c0a64757724981dc04"
+    },
+    "find-skills": {
+      "source": "vercel-labs/skills",
+      "sourceType": "github",
+      "skillPath": "skills/find-skills/SKILL.md",
+      "computedHash": "9e1c8b3103f92fa8092568a44fe64858de7c5c9dc65ce4bea8f168080e889cfd"
     },
     "mem0": {
       "source": "mem0ai/mem0",
@@ -25,6 +51,11 @@
       "source": "SpillwaveSolutions/project-memory",
       "sourceType": "github",
       "computedHash": "c0488a390e0226d0e9bfae18bfed0345a9f853adce6fedd132feda421d4c04c7"
+    },
+    "sequential-thinking": {
+      "source": "mrgoonie/claudekit-skills",
+      "sourceType": "github",
+      "computedHash": "2d772aca1eab9aa266fb1ab50455febb571fb2a409ad6be90302a345da40a880"
     }
   }
 }
