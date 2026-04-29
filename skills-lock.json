@@ -42,6 +42,12 @@
       "sourceType": "github",
       "computedHash": "3e43b045f0e3a91bc7686acc91d948d605c63548f833581ab50ed49d37711f5d"
     },
+    "multi-agent-orchestration": {
+      "source": "qodex-ai/ai-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/multi-agent-orchestration/SKILL.md",
+      "computedHash": "e5517caccf376ec61d8f94cd22f1bdd44a588a61214fcf8a67b75ba3d23a1864"
+    },
     "planning-with-files": {
       "source": "othmanadi/planning-with-files",
       "sourceType": "github",
@@ -51,6 +57,12 @@
       "source": "SpillwaveSolutions/project-memory",
       "sourceType": "github",
       "computedHash": "c0488a390e0226d0e9bfae18bfed0345a9f853adce6fedd132feda421d4c04c7"
+    },
+    "python-expert": {
+      "source": "shubhamsaboo/awesome-llm-apps",
+      "sourceType": "github",
+      "skillPath": "awesome_agent_skills/python-expert/SKILL.md",
+      "computedHash": "502979957aa63e93b0366d357a241695181c93e739e1bb75b6410505bcc91ba9"
     },
     "sequential-thinking": {
       "source": "mrgoonie/claudekit-skills",

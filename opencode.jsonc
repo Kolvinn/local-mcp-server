@@ -1,95 +1,73 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "agent": {
-    "coordinator": {
-      "description": "Coordinator — Primary agent. Context king. Goal-oriented orchestrator. Owns project context, delegates to expert (how), implementer (what), explorer (scout), reviewer (verify). User gates at every stage.",
+    "orchestrator": {
+      "description": "Orchestrator — Sole user contact. Owns goals, workflow direction, delegation, and approval gates. Never designs, codes, explores, or reviews. Spawns System Thinker (design), Implementer (code), Reviewer (verify), Explorer (scout).",
       "mode": "primary",
-      "model": "opencode-go/glm-5.1",
-      "prompt": "{file:./prompts/coordinator.md}",
+      "model": "opencode-go/deepseek-v4-pro",
+      "prompt": "{file:./prompts/orchestrator.md}",
       "permission": {
         "bash": {
-          "python3 *": "ask",
-          "pip *": "ask",
-          "pytest *": "ask",
-          "npm *": "ask",
-          "node *": "ask",
-          "curl *": "ask",
-          "wget *": "ask",
+          "head *": "allow",
+          "wc *": "allow",
+          "cat *": "allow",
           "git status": "allow",
           "git diff *": "allow",
           "git log *": "allow",
           "*": "ask"
         },
-        "webfetch": "allow",
-        "websearch": "allow",
-        "task": {
-          "*": "deny",
-          "expert": "allow",
-          "implementer": "allow",
-          "explorer": "allow",
-          "reviewer": "allow"
-        }
-      }
-    },
-    "product_owner": {
-      "description": "Use this agent when the user wants strategic direction on a project, needs help prioritizing work, or wants to understand why something should be built a certain way. Single point of contact — all project direction communication flows through it. Project-agnostic.",
-      "mode": "primary",
-      "model": "opencode-go/glm-5.1",
-      "prompt": "{file:./prompts/product_owner.md}",
-      "permission": {
-        "bash": {
-          "python3 *": "ask",
-          "pip *": "ask",
-          "pytest *": "ask",
-          "npm *": "ask",
-          "node *": "ask",
-          "curl *": "ask",
-          "wget *": "ask",
-          "git status": "ask",
-          "git diff *": "ask",
-          "git log *": "ask",
+        "read": "allow",
+        "write": {
+          "docs/project_notes/*": "allow",
+          "docs/ratings/*": "allow",
           "*": "ask"
         },
-        "read": "ask",
         "webfetch": "ask",
         "websearch": "ask",
         "task": {
-          "*": "deny",
-          "expert": "ask",
-          "implementer": "ask",
-          "explorer": "ask",
-          "reviewer": "ask"
+          "system_thinker": "allow",
+          "implementer": "allow",
+          "reviewer": "allow",
+          "explorer": "allow",
+          "*": "deny"
         }
       }
     },
-    "expert": {
-      "description": "Domain expert — MCP server architecture, Mem0 integration, Python backend patterns. Returns condensed options. Read-only advisor with lazy skill loading.",
+    "system_thinker": {
+      "description": "System Thinker — Spawnable template for domain design. Loads skills per delegation. Produces design options (wide) and pseudocode specs (deep). Records learnings. Never writes production code or talks to users.",
       "mode": "all",
       "model": "opencode-go/kimi-k2.5",
-      "prompt": "{file:./prompts/expert.md}",
+      "prompt": "{file:./prompts/system_thinker.md}",
       "permission": {
         "bash": {
-          "git log *": "allow",
-          "git diff *": "allow",
-          "git show *": "allow",
           "rg *": "allow",
           "grep *": "allow",
           "find *": "allow",
           "cat *": "allow",
+          "head *": "allow",
+          "git log *": "allow",
+          "git diff *": "allow",
+          "git show *": "allow",
           "*": "deny"
         },
-        "edit": "deny",
-        "write": "deny",
+        "read": "allow",
+        "write": {
+          "docs/briefs/*": "allow",
+          "docs/specs/*": "allow",
+          "docs/learnings/*": "allow",
+          "*": "deny"
+        },
+        "glob": "allow",
         "webfetch": "deny",
         "websearch": "deny",
-        "glob": "allow",
         "task": {
+          "explorer": "allow",
           "*": "deny"
         }
       }
     },
     "implementer": {
-      "description": "Implementer — Python code writer. Receives approved specs, writes minimal correct code. Syntax-focused, spec-driven.",
+      "description": "Implementer — Code translator. Reads approved pseudocode specs, writes production code, runs tests. Translates, does not design.",
       "mode": "subagent",
       "model": "opencode-go/kimi-k2.5",
       "prompt": "{file:./prompts/implementer.md}",
@@ -105,22 +83,7 @@
           "grep *": "allow",
           "find *": "allow",
           "cat *": "allow",
-          "*": "ask"
-        },
-        "webfetch": "deny",
-        "websearch": "deny"
-      }
-    },
-    "explorer": {
-      "description": "Context gathering agent. Directory scans, file searches, grep, project mapping. Fast, efficient, read-only.",
-      "mode": "subagent",
-      "model": "opencode-go/deepseek-v4-flash",
-      "prompt": "{file:./prompts/explorer.md}",
-      "permission": {
-        "bash": {
-          "git status": "allow",
-          "git log *": "allow",
-          "git diff *": "allow",
+          "head *": "allow",
           "*": "ask"
         },
         "webfetch": "deny",
@@ -128,7 +91,7 @@
       }
     },
     "reviewer": {
-      "description": "Read-only code reviewer. Verifies implementations against specs. Priority-based findings: Blocker, Major, Minor, Suggestion.",
+      "description": "Reviewer — Read-only code verification. Compares implementation to pseudocode spec. Priority-based findings: Blocker, Major, Minor, Suggestion.",
       "mode": "subagent",
       "model": "opencode-go/kimi-k2.5",
       "prompt": "{file:./prompts/reviewer.md}",
@@ -141,10 +104,15 @@
           "find * -type f*": "allow",
           "wc *": "allow",
           "pytest *": "allow",
+          "cat *": "allow",
+          "head *": "allow",
           "*": "deny"
         },
         "edit": "deny",
-        "write": "deny",
+        "write": {
+          "docs/reviews/*": "allow",
+          "*": "deny"
+        },
         "webfetch": "deny",
         "websearch": "deny",
         "glob": "allow",
@@ -155,26 +123,36 @@
         }
       }
     },
-    "agent-creator": {
-      "description": "Collaborative agent designer — helps create new agents through iterative refinement with the user.",
-      "mode": "all",
-      "model": "opencode-go/minimax-m2.7",
-      "prompt": "{file:./prompts/agent-creator.md}",
+    "explorer": {
+      "description": "Explorer — Read-only codebase scout and structural analyst. File search, dependency graphs, call chains, import maps. Writes findings to docs/exploration/. Returns only 'complete' or 'error' to caller.",
+      "mode": "subagent",
+      "model": "opencode-go/deepseek-v4-flash",
+      "prompt": "{file:./prompts/explorer.md}",
       "permission": {
         "bash": {
-          ".agents/skills/agent-development/scripts/*": "allow",
+          "git status": "allow",
+          "git log *": "allow",
+          "git diff *": "allow",
+          "git show *": "allow",
+          "find *": "allow",
+          "rg *": "allow",
+          "grep *": "allow",
+          "cat *": "allow",
+          "head *": "allow",
+          "wc *": "allow",
+          "*": "ask"
+        },
+        "webfetch": "deny",
+        "websearch": "deny",
+        "glob": "allow",
+        "read": "allow",
+        "write": {
+          "docs/exploration/*": "allow",
           "*": "deny"
         },
-        "read": "ask",
-        "write": "ask",
-        "glob": "allow",
-        "grep": "allow",
+        "edit": "deny",
         "task": {
-          "expert": "allow",
-          "implementer": "allow",
-          "explorer": "allow",
-          "reviewer": "allow",
-          "*": "ask"
+          "*": "deny"
         }
       }
     }
