@@ -122,59 +122,60 @@ Project configuration, constants, and frequently-needed **non-sensitive** inform
 - **No auth/multi-tenancy**: Single user access model only
 - **No healthchecks**: Not a priority right now
 
-## Agent Team
+## Agent Team (v2 — ADR-023)
 
-- **Coordinator** (primary): opencode-go/glm-5.1 — Orchestrates, tracks goals, user gates, delegates to experts
-- **Expert** (all): opencode-go/kimi-k2.5 — Domain knowledge (FastMCP, Mem0, architecture, ADRs). Lazy-loads skills. Read-only advisor.
-- **Explorer** (subagent): opencode-go/minimax-m2.7 — Read-only scout, file search, pattern discovery
-- **Implementer** (subagent): opencode-go/kimi-k2.5 — Code writing, Python/FastMCP syntax. Receives approved specs only.
-- **Reviewer** (subagent): opencode-go/kimi-k2.5 — Read-only code verification, fox/henhouse prevention
+### Agents
 
-### Delegation Model: 3-Layer with User Gates
+| Agent | Mode | Model | Role |
+|-------|------|-------|------|
+| **Orchestrator** | primary | deepseek-v4-pro | Sole user contact. Owns goals, workflow state, delegation, 4 approval gates. Never designs, codes, explores, reviews. |
+| **System Thinker** | all (spawnable) | kimi-k2.5 | Template-based domain designer. Loads skills per delegation. Produces options (wide) and pseudocode specs (deep). Records learnings. |
+| **Implementer** | subagent | kimi-k2.5 | Translates pseudocode specs → production code. No design decisions. Reads `docs/context/` for project conventions. |
+| **Reviewer** | subagent | kimi-k2.5 | Read-only. Verifies code against pseudocode spec. Classifies: Blocker/Major/Minor/Suggestion. Writes review to file. |
+| **Explorer** | subagent | deepseek-v4-flash | Read-only. File search + structural analysis (dependency graphs, call chains). Writes to `docs/exploration/`, returns only `complete`/`error`. |
 
-```
-WHY  → Coordinator (goals, decisions, user sign-offs) (OUTDATED -> Product_owner succeeeds)
-HOW  → Expert (domain knowledge, options, specifications)
-WHAT → Implementer (code, syntax, implementation)
-```
+### Key Protocols
 
-- Every stage transition requires user approval (no autonomous pipeline)
-- Coordinator asks expert for options → user approves → coordinator delegates to implementer → user approves → reviewer verifies → user signs off
+**Transparency Protocol:** Every agent writes full output to file (`docs/briefs/`, `docs/specs/`, `docs/reviews/`, `docs/exploration/`), passes condensed summary to consumer. Orchestrator never reads raw agent output — summaries only.
+
+**File Access Protocol (Orchestrator):** Uses `head -c 5000 <file>` before reading directly. If output = 5000 bytes, delegates to Explorer. `docs/context/` files read directly. Source code always delegated. User instruction overrides threshold.
+
+**Pseudocode Handoff:** System Thinker → Implementer via `docs/specs/{name}.md`. Implementer translates, doesn't interpret. Reviewer verifies structural compliance.
+
+**Approval Gates:** G1 (approach) → G2 (spec) → G3 (code) → G4 (review). Lightweight confirmations. Trivial changes can skip intermediate gates with user consent. Gate 4 never skipped.
+
+**Three-Tier Context:** Tier 1 (methodology, baked in prompt), Tier 2 (domain, `docs/context/`), Tier 3 (task, delegation prompt). All agents are project-agnostic.
+
+**Evolution:** Orchestrator collects session ratings → `docs/ratings/`. System Thinker records learnings → `docs/learnings/{domain}/`. Accumulated data feeds improvement runs.
 
 ### Agent Config Files
 
-- `opencode.jsonc` — 5 agents defined (coordinator, expert, implementer, explorer, reviewer)
-- `prompts/coordinator.md` — Updated: 3-layer delegation, user gates, @expert delegation (OUTDATED)
-- `prompts/expert.md` — Domain principles + skill index + anti-staleness rules + read-only
-- `prompts/implementer.md` — Syntax-focused, spec-driven, project conventions
-- `prompts/reviewer.md` — Priority-based review (Blocker/Major/Minor/Suggestion), spec compliance
-- `prompts/explorer.md` — Unchanged from previous session
-- Old `prompts/coder.md` — Deleted by user
+- `opencode.jsonc` — 5 agents: orchestrator, system_thinker, implementer, reviewer, explorer
+- `prompts/orchestrator.md` — Entry agent: goals, gates, delegation, file access protocol
+- `prompts/system_thinker.md` — Spawnable template: options → pseudocode, skill loading, learning recording
+- `prompts/implementer.md` — Project-agnostic translator: reads context + spec, writes code
+- `prompts/reviewer.md` — Pseudocode compliance verification, writes review to file
+- `prompts/explorer.md` — Structural analysis tools, file-only output protocol
 
-### Session Persistence
+### Removed Agents
 
-- Expert sessions (Task tool) are ephemeral — do not persist across OpenCode restarts
-- Coordinator carries institutional memory via `docs/project_notes/`
-- V2: Expert could use MCP server memory to persist architectural decisions across sessions
+- `coordinator.md`, `product_owner.md` — Superseded by Orchestrator
+- `expert.md` — Superseded by System Thinker
+- `agentic_architect.md`, `agent-creator.md`, `agent_team.md` — Removed
 
-### Delegation Mechanisms
+### File Convention Map
 
-- **Tier 1**: Task tool — fast, in-process, for explorer + simple lookups
-- **Tier 2**: CLI `opencode run --agent <name>` — full agent context, blocking
-- **Tier 3**: Server API / Plugin — async, lifecycle control, parallel execution
-
-### Skill Injection Pattern (ADR-017, supersedes ADR-016)
-
-- **Domain expertise** baked into expert agent prompt (FastMCP patterns, Mem0 SDK, hexagonal architecture, Python/MCP best practices)
-- **Project context** passed by coordinator per-task (relevant ADRs, key facts, current goal scope, constraints)
-- Expert only knows the current goal — not the entire project overview
-- Coordinator owns project overview (how goals fit together, priority ordering)
-- v2 stretch goal: Expert directly injects context into implementer
-
-### Planning Files
-
-- `task_plan.md` / `findings.md` / `progress.md` — MCP server architecture (complete, 5/5 phases)
-- `task_plan_agents.md` / `findings_agents.md` / `progress_agents.md` — Agent team architecture (Phase 1/6 complete)
+```
+docs/
+├── context/              ← Tier 2: project-specific (stack, conventions, constraints, services)
+├── briefs/               ← System Thinker: option analyses (wide phase)
+├── specs/                ← System Thinker: pseudocode specs (deep phase)
+├── reviews/              ← Reviewer: verification reports
+├── exploration/          ← Explorer: search results, dependency maps
+├── learnings/            ← System Thinker: meta-cognitive recordings
+├── ratings/              ← Orchestrator: session-end user ratings
+└── project_notes/        ← Orchestrator: institutional memory (ADRs, bugs, issues)
+```
 
 ## Do-Nots
 

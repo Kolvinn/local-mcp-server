@@ -548,6 +548,51 @@ Architecture Decision Records (ADRs). Immutable — append only. Never delete or
 
 ---
 
+### ADR-023: Clean Separation of Concerns — Single Orchestrator + Spawnable System Thinker (2026-04-29)
+
+**Context:**
+- Coordinator and Product Owner both existed as `primary`-mode agents with ~95% overlapping scope: user contact, goal ownership, delegation, approval gates. Two agents fighting for the same responsibilities.
+- Product Owner was designed to replace Coordinator but the overlap created ambiguity about who the user talks to and who owns what.
+- Expert was a fixed agent with domain patterns (FastMCP, Mem0, hexagonal) baked into its prompt — not portable across projects.
+- Prose specs from Expert left an interpretation gray zone for Implementer and Reviewer.
+
+**Decision:**
+- **Single Orchestrator** (primary) as sole user contact. Owns: goals, workflow state, delegation, approval gates. Anti-scope: never designs, never codes, never explores, never reviews.
+- **System Thinker** (all-mode, spawnable template) replaces Expert. Base prompt is project-agnostic methodology (trade-off analysis, pseudocode production, consequence reasoning, learning recording). Domain expertise injected via skills loaded per-delegation.
+- **Implementer** rewritten as project-agnostic translator: reads `docs/context/`, translates pseudocode → production code. No design decisions. No project specifics baked in.
+- **Reviewer** updated to verify code against pseudocode spec (structural diff, not prose intent inference). Writes full review to file, returns summary.
+- **Explorer** updated with structural analysis tools (dependency graphs, call chains, import maps, impact radius). File-only output protocol: writes to `docs/exploration/`, returns only `complete` or `error`.
+- **Agent Creator removed** — shelved for future revisit.
+- **Product Owner, Coordinator, Expert, agentic_architect removed** from opencode.jsonc.
+- **Transparency protocol**: every agent writes full output to file, passes condensed summary to consumer.
+- **Three-tier context model**: Tier 1 (methodology, baked in prompt), Tier 2 (domain, `docs/context/`), Tier 3 (task, delegation prompt).
+- **Pseudocode handoff**: System Thinker produces pseudocode specs with method signatures, error conditions, side effects, transactional relationships. Implementer translates (doesn't interpret). Reviewer verifies structural compliance.
+- **4 approval gates**: Approach (G1) → Spec (G2) → Code (G3) → Review (G4). Gates are lightweight confirmations; trivial changes can skip intermediate gates with user consent.
+- **File access protocol**: Orchestrator uses `head -c 5000` byte sampling before reading any non-context file directly. Source code always delegated to Explorer. User instruction overrides threshold.
+- **Evolution mechanism**: Orchestrator collects session ratings → `docs/ratings/`. Accumulated data feeds improvement runs that refine agent prompts.
+- **Learning recording**: System Thinker writes learnings to `docs/learnings/{domain}/{session}.md` for cross-instance continuity.
+
+**Alternatives Considered:**
+- Keep dual entry agents (Coordinator + PO) → Rejected: overlapping scope causes ambiguity and diluted responsibility
+- Fixed Expert with baked domain knowledge → Rejected: not portable, stale risk, can't spawn multiple instances
+- Single-use agents (one per task) → Rejected: wasteful, no cross-instance learning
+
+**Consequences:**
+- ✅ Zero overlapping responsibilities across all agents
+- ✅ Project-agnostic — same agent team works on any project by swapping `docs/context/`
+- ✅ Pseudocode handoff eliminates interpretation gray zone
+- ✅ File + summary protocol: transparency without context bloat
+- ✅ Dynamic spawning: multiple Thinker instances for complex parallel analysis
+- ✅ Evolution-ready: ratings + learnings feed improvement cycle
+- ❌ Sequential pipeline is inherently slower than parallel
+- ❌ Pseudocode depth calibration requires iteration
+- ❌ System Thinker instantiation requires Orchestrator to specify skill loads correctly
+- ❌ Stale files removed (coordinator.md, product_owner.md, expert.md, agentic_architect.md, agent-creator.md, agent_team.md)
+
+---
+
 ### V2 Backlog
 
 - **Expert Persistent Memory**: Once MCP server is built, expert agents could use add_memory/search_memory to persist architectural decisions across sessions. Currently expert sessions are ephemeral (no persistence across OpenCode restarts). Coordinator carries institutional memory via docs/project_notes/.
+- **Evolution Pipeline Automation**: Automatic analysis of accumulated ratings to propose prompt improvements.
+- **Agent Creator Revisit**: Rebuild with the System Thinker template model.

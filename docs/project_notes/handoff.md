@@ -1,4 +1,68 @@
-# Session 007 Handoff
+# Session 009 Handoff — Agent Architecture Redesign
+
+**Date**: 2026-04-29
+**Status**: Complete — Agent team v2 designed and configured
+
+---
+
+## What Was Accomplished
+
+1. **Identified root cause of agent overlap**: Coordinator and Product Owner had ~95% shared scope. Dual primary agents fighting for user contact, goal ownership, delegation, and gate management.
+
+2. **Designed v2 agent team** (ADR-023):
+   - **Orchestrator** (primary) — single entry point. Owns goals, workflow state, delegation, 4 approval gates. Anti-scope: never designs, codes, explores, reviews.
+   - **System Thinker** (spawnable template) — domain design via skill injection. Produces options (wide) + pseudocode specs (deep). Records learnings for cross-instance continuity.
+   - **Implementer** (subagent) — translates pseudocode → production code. Project-agnostic. Reads `docs/context/` for project specifics.
+   - **Reviewer** (subagent) — verifies code against pseudocode spec. Structural compliance, not intent inference.
+   - **Explorer** (subagent) — structural analysis (dependency graphs, call chains) + file search. File-only output.
+
+3. **Key architectural innovations**:
+   - **Pseudocode handoff**: falsifiable contracts between design and implementation. No interpretation gray zone.
+   - **Transparency protocol**: agents write full output to files, pass condensed summaries. Orchestrator context stays lean. User inspects anything.
+   - **Three-tier context model**: baked methodology (T1) + domain context files (T2) + task delegation (T3). All agents project-agnostic.
+   - **File access protocol**: `head -c 5000` threshold before Orchestrator reads directly. Source code always delegated to Explorer.
+   - **Dynamic spawning**: multiple System Thinker instances for parallel analysis with different skill loads.
+   - **Evolution mechanism**: session ratings + learning recordings feed improvement runs.
+
+4. **Files created**: 5 agent prompts, 4 context files, updated opencode.jsonc.
+5. **Files removed**: coordinator.md, product_owner.md, expert.md, agentic_architect.md, agent-creator.md, agent_team.md.
+
+---
+
+## Current State
+
+- **Agent team v2**: Fully configured in `opencode.jsonc`. All 5 agent prompts written.
+- **Context files**: `docs/context/` populated with stack, conventions, constraints, services.
+- **Legacy agents**: Removed from config and disk.
+- **Main project**: Memory service implementation still pending (Session 007-008 backlog).
+
+---
+
+## Next Steps (User's Discretion)
+
+- **Start using the new agent team**: Begin a session with Orchestrator for memory service work.
+- **Test the workflow**: Run through a full feature with all 4 gates: approach → spec → code → review.
+- **Collect initial ratings**: Establish baseline for evolution mechanism.
+- **Memory service work (backlog)**: Implement `infer` parameter, create live ingestion test suite.
+- **Proxy pattern**: Wire up root `main.py` as proxy server, mount memory service behind it.
+
+---
+
+## Files Modified
+
+- `prompts/orchestrator.md` — NEW: entry agent with file access protocol
+- `prompts/system_thinker.md` — NEW: spawnable template with pseudocode spec writing
+- `prompts/implementer.md` — REWRITTEN: project-agnostic, pseudocode translator
+- `prompts/reviewer.md` — REWRITTEN: pseudocode compliance, file-based output
+- `prompts/explorer.md` — REWRITTEN: structural analysis, file-only output
+- `docs/context/stack.md` — NEW: runtime, frameworks, hardware
+- `docs/context/conventions.md` — NEW: code style, naming, patterns
+- `docs/context/constraints.md` — NEW: hard limits, security boundaries
+- `docs/context/services.md` — NEW: available services, ports
+- `opencode.jsonc` — REPLACED: v2 agent team, old agents decommissioned
+- `docs/project_notes/decisions.md` — Added ADR-023
+- `docs/project_notes/key_facts.md` — Updated agent team, protocols, file map
+- `docs/project_notes/handoff.md` — This entry
 
 **Date**: 2026-04-25
 **Status**: In progress — blocked on implementation decisions
