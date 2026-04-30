@@ -40,23 +40,20 @@ mcp = FastMCP("memory-server")
 # 3. MEM0 INITIALIZATION (Fail-Fast)
 # =====================================================================
 
-# Global memory_client - initialized below but can be mocked for testing
-memory_client = None
+# Global clients - initialized below but can be mocked for testing
+mem_client = None
+goal_client = None
 
 
-def init_memory_client():
-    """Initialize the Mem0 memory client. Can be mocked for testing."""
-    global memory_client
-
-    if memory_client is not None:
-        return memory_client
-
-    config = {
+def _build_mem0_config(collection_name: str) -> dict:
+    """Build Mem0 config dict with the given collection name."""
+    return {
         "vector_store": {
             "provider": "qdrant",
             "config": {
                 "host": QDRANT_HOST,
                 "port": QDRANT_PORT,
+                "collection_name": collection_name,
             }
         },
         "llm": {
@@ -75,18 +72,30 @@ def init_memory_client():
         }
     }
 
+
+def init_memory_clients():
+    """Initialize both Mem0 clients (memories and goal_trees). Can be mocked for testing."""
+    global mem_client, goal_client
+
+    if mem_client is not None and goal_client is not None:
+        return
+
     # Fail-fast: server won't start if Qdrant/Ollama unreachable
     try:
-        memory_client = Memory.from_config(config)
+        mem_client = Memory.from_config(_build_mem0_config("memories"))
     except Exception as e:
-        print(f"FATAL: Failed to initialize Mem0: {e}")
+        print(f"FATAL: Failed to initialize Mem0 memory client: {e}")
         raise
 
-    return memory_client
+    try:
+        goal_client = Memory.from_config(_build_mem0_config("goal_trees"))
+    except Exception as e:
+        print(f"FATAL: Failed to initialize Mem0 goal client: {e}")
+        raise
 
 
 # Initialize on import (can be overridden by tests)
-init_memory_client()
+init_memory_clients()
 
 # =====================================================================
 # 4. PYDANTIC MODELS
@@ -176,9 +185,13 @@ class DeleteGoalNodeInput(BaseModel):
 def build_search_filters(
     tags: List[str],
     project_id: Optional[str],
-    source_user: Optional[str]
+    source_user: Optional[str],
+    user_id: str,
 ) -> Dict[str, Any]:
-    """Build search filters for Mem0 based on provided criteria."""
+    """Build search filters for Mem0 based on provided criteria.
+
+    Always includes user_id in the returned filters dict.
+    """
     conditions = []
 
     if tags:
@@ -195,10 +208,10 @@ def build_search_filters(
         conditions.append({"source_user": source_user})
 
     if len(conditions) == 0:
-        return {}
+        return {"user_id": user_id}
     if len(conditions) == 1:
-        return conditions[0]
-    return {"AND": conditions}
+        return {"AND": [{"user_id": user_id}, conditions[0]]}
+    return {"AND": [{"user_id": user_id}, {"AND": conditions}]}
 
 
 def build_goal_filters(
@@ -209,12 +222,13 @@ def build_goal_filters(
     status: Optional[str],
     project_id: Optional[str],
     tags: Optional[List[str]],
+    user_id: str,
 ) -> Dict[str, Any]:
     """Build Mem0-compatible metadata filter dict for goal node search.
 
     Combines all non-None criteria with AND logic.
     Tags within the list use OR logic (matches existing pattern).
-    Returns empty dict if no criteria specified.
+    Always includes user_id in the returned filters dict.
     """
     conditions: List[Dict[str, Any]] = []
 
@@ -244,10 +258,10 @@ def build_goal_filters(
             conditions.append({"OR": tag_conditions})
 
     if len(conditions) == 0:
-        return {}
+        return {"user_id": user_id}
     if len(conditions) == 1:
-        return conditions[0]
-    return {"AND": conditions}
+        return {"AND": [{"user_id": user_id}, conditions[0]]}
+    return {"AND": [{"user_id": user_id}, {"AND": conditions}]}
 
 
 def reconstruct_tree(all_nodes: List[Dict], root_id: str) -> Dict:
@@ -349,7 +363,7 @@ def add_memory(
             "source_path": source_path,  # None is fine - explicit absence
         }
 
-        result = memory_client.add(
+        result = mem_client.add(
             content,
             user_id=AGENT_ID,
             metadata=metadata,
@@ -385,14 +399,13 @@ def search_memory(
     """
     try:
         # Build filters
-        filters = build_search_filters(tags or [], project_id, source_user)
+        filters = build_search_filters(tags or [], project_id, source_user, user_id=AGENT_ID)
 
         # Search memories
-        results = memory_client.search(
+        results = mem_client.search(
             query=query,
             filters=filters,
-            user_id=AGENT_ID,
-            limit=top_k
+            top_k=top_k,
         )
 
         # Filter by threshold manually if needed (Mem0 may not support threshold directly)
@@ -433,7 +446,7 @@ def delete_memory(memory_id: str) -> str:
         memory_id: UUID of the memory to delete
     """
     try:
-        memory_client.delete(memory_id)
+        mem_client.delete(memory_id)
         return f"Memory {memory_id} successfully deleted."
     except Exception as e:
         return f"Error deleting memory: {str(e)}"
@@ -507,14 +520,13 @@ def list_projects(limit: int = 100) -> str:
         # Get all memories for this user
         # Note: Mem0's get_all method may vary; using search with broad query as fallback
         try:
-            all_memories = memory_client.get_all(user_id=AGENT_ID, filters={}, limit=limit)
+            all_memories = mem_client.get_all(filters={"user_id": AGENT_ID}, limit=limit)
         except AttributeError:
             # Fallback: use search with empty/broad query
-            all_memories = memory_client.search(
+            all_memories = mem_client.search(
                 query="*",
-                filters={},
-                user_id=AGENT_ID,
-                limit=limit
+                filters={"user_id": AGENT_ID},
+                top_k=limit,
             )
 
         # Extract unique project_ids from metadata
@@ -577,7 +589,7 @@ def add_goal_node(input: AddGoalNodeInput) -> str:
     }
 
     try:
-        result = memory_client.add(
+        result = goal_client.add(
             input.content,
             user_id=AGENT_ID,
             metadata=metadata,
@@ -612,14 +624,14 @@ def search_goal_nodes(input: SearchGoalNodesInput) -> str:
             status=input.status,
             project_id=input.project_id,
             tags=input.tags if input.tags else None,
+            user_id=AGENT_ID,
         )
 
         # Search via Mem0
-        results = memory_client.search(
+        results = goal_client.search(
             query=input.query,
             filters=filters,
-            user_id=AGENT_ID,
-            limit=input.top_k,
+            top_k=input.top_k,
         )
 
         # Filter by threshold manually if needed
@@ -674,23 +686,24 @@ def get_goal_tree(input: GetGoalTreeInput) -> str:
     try:
         # Build filters to fetch all nodes belonging to this tree
         filters: Dict[str, Any] = {
-            "root_id": {"eq": input.root_id},
-            "node_type": {"in": ["goal", "task", "subtask"]},
+            "AND": [
+                {"user_id": AGENT_ID},
+                {"root_id": {"eq": input.root_id},
+                 "node_type": {"in": ["goal", "task", "subtask"]}},
+            ],
         }
 
         # Attempt get_all first; fall back to search with broad query
         try:
-            all_nodes = memory_client.get_all(
+            all_nodes = goal_client.get_all(
                 filters=filters,
-                user_id=AGENT_ID,
                 limit=1000,
             )
         except Exception:
-            all_nodes = memory_client.search(
+            all_nodes = goal_client.search(
                 query="*",
                 filters=filters,
-                user_id=AGENT_ID,
-                limit=1000,
+                top_k=1000,
             )
 
         if not all_nodes:
@@ -742,7 +755,7 @@ def update_goal_node(input: UpdateGoalNodeInput) -> str:
         metadata_update["project_id"] = input.project_id
 
     try:
-        memory_client.update(
+        goal_client.update(
             input.node_id,
             data=input.content,
             metadata=metadata_update,
@@ -763,7 +776,7 @@ def delete_goal_node(input: DeleteGoalNodeInput) -> str:
         input: DeleteGoalNodeInput with the node_id to delete.
     """
     try:
-        memory_client.delete(input.node_id)
+        goal_client.delete(input.node_id)
         return f"Goal node {input.node_id} deleted successfully."
 
     except Exception as e:

@@ -10,22 +10,25 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 
-# Create mock memory client before importing main
-mock_memory_client = MagicMock()
+# Create mock clients before importing main
+mock_mem_client = MagicMock()
+mock_goal_client = MagicMock()
 
 # Patch the Memory class before importing main
 with patch.dict("sys.modules", {"mem0": MagicMock()}):
     # Create a mock mem0 module with Memory class
     mock_mem0 = MagicMock()
-    mock_mem0.Memory.from_config.return_value = mock_memory_client
+    # from_config is called twice (memories, goal_trees), return each mock in order
+    mock_mem0.Memory.from_config.side_effect = [mock_mem_client, mock_goal_client]
     sys.modules["mem0"] = mock_mem0
     sys.modules["mem0.memory"] = mock_mem0
 
     # Now import main - it will use our mocked Memory
     import main
 
-    # Override the memory_client with our mock
-    main.memory_client = mock_memory_client
+    # Override the clients with our mocks
+    main.mem_client = mock_mem_client
+    main.goal_client = mock_goal_client
 
 
 # =====================================================================
@@ -81,58 +84,128 @@ class TestConfigLoading:
 class TestFilterConstruction:
     """Test build_search_filters helper function."""
 
-    def test_empty_filters_returns_empty_dict(self):
-        """Empty filters returns empty dict."""
-        result = main.build_search_filters([], None, None)
-        assert result == {}
+    def test_empty_filters_returns_user_id_only(self):
+        """Empty filters returns user_id-only dict (not empty dict)."""
+        result = main.build_search_filters([], None, None, main.AGENT_ID)
+        assert result == {"user_id": main.AGENT_ID}
 
     def test_single_tag_filter(self):
-        """Single tag creates contains filter."""
-        result = main.build_search_filters(["api"], None, None)
-        assert result == {"tags": {"contains": "api"}}
+        """Single tag creates contains filter wrapped with user_id."""
+        result = main.build_search_filters(["api"], None, None, main.AGENT_ID)
+        assert result == {
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {"tags": {"contains": "api"}}
+            ]
+        }
 
     def test_multiple_tags_filter_uses_or_logic(self):
-        """Multiple tags use OR logic."""
-        result = main.build_search_filters(["api", "database"], None, None)
+        """Multiple tags use OR logic, wrapped with user_id."""
+        result = main.build_search_filters(["api", "database"], None, None, main.AGENT_ID)
         assert result == {
-            "OR": [
-                {"tags": {"contains": "api"}},
-                {"tags": {"contains": "database"}}
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {
+                    "OR": [
+                        {"tags": {"contains": "api"}},
+                        {"tags": {"contains": "database"}}
+                    ]
+                }
             ]
         }
 
     def test_project_id_filter(self):
-        """Project ID filter is added directly."""
-        result = main.build_search_filters([], "my-project", None)
-        assert result == {"project_id": "my-project"}
-
-    def test_source_user_filter(self):
-        """Source user filter is added directly."""
-        result = main.build_search_filters([], None, "john")
-        assert result == {"source_user": "john"}
-
-    def test_combined_filters_use_and_logic(self):
-        """Multiple conditions use AND logic."""
-        result = main.build_search_filters(["api"], "my-project", "john")
+        """Project ID filter is added with user_id."""
+        result = main.build_search_filters([], "my-project", None, main.AGENT_ID)
         assert result == {
             "AND": [
-                {"tags": {"contains": "api"}},
-                {"project_id": "my-project"},
+                {"user_id": main.AGENT_ID},
+                {"project_id": "my-project"}
+            ]
+        }
+
+    def test_source_user_filter(self):
+        """Source user filter is added with user_id."""
+        result = main.build_search_filters([], None, "john", main.AGENT_ID)
+        assert result == {
+            "AND": [
+                {"user_id": main.AGENT_ID},
                 {"source_user": "john"}
             ]
         }
 
+    def test_combined_filters_use_and_logic(self):
+        """Multiple conditions use AND logic with user_id."""
+        result = main.build_search_filters(["api"], "my-project", "john", main.AGENT_ID)
+        assert result == {
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {
+                    "AND": [
+                        {"tags": {"contains": "api"}},
+                        {"project_id": "my-project"},
+                        {"source_user": "john"}
+                    ]
+                }
+            ]
+        }
+
     def test_tags_project_user_combined(self):
-        """All three filter types combined correctly."""
-        result = main.build_search_filters(["tag1", "tag2"], "proj", "user")
+        """All three filter types combined correctly with user_id."""
+        result = main.build_search_filters(["tag1", "tag2"], "proj", "user", main.AGENT_ID)
         assert "AND" in result
-        assert len(result["AND"]) == 3
-        assert result["AND"][0] == {"OR": [
+        assert len(result["AND"]) == 2
+        assert result["AND"][0] == {"user_id": main.AGENT_ID}
+        inner_and = result["AND"][1]
+        assert len(inner_and["AND"]) == 3
+        assert inner_and["AND"][0] == {"OR": [
             {"tags": {"contains": "tag1"}},
             {"tags": {"contains": "tag2"}}
         ]}
-        assert result["AND"][1] == {"project_id": "proj"}
-        assert result["AND"][2] == {"source_user": "user"}
+        assert inner_and["AND"][1] == {"project_id": "proj"}
+        assert inner_and["AND"][2] == {"source_user": "user"}
+
+    # --- New user_id-specific test cases ---
+
+    def test_user_id_alone(self):
+        """user_id alone returns user_id-only dict."""
+        result = main.build_search_filters([], None, None, main.AGENT_ID)
+        assert result == {"user_id": main.AGENT_ID}
+
+    def test_user_id_with_tags(self):
+        """user_id + tags produces AND wrapping both."""
+        result = main.build_search_filters(["api"], None, None, main.AGENT_ID)
+        assert result == {
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {"tags": {"contains": "api"}}
+            ]
+        }
+
+    def test_user_id_with_project(self):
+        """user_id + project produces AND wrapping both."""
+        result = main.build_search_filters([], "my-project", None, main.AGENT_ID)
+        assert result == {
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {"project_id": "my-project"}
+            ]
+        }
+
+    def test_user_id_with_tags_and_project(self):
+        """user_id + tags + project produces AND wrapping all three."""
+        result = main.build_search_filters(["api"], "my-project", None, main.AGENT_ID)
+        assert result == {
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {
+                    "AND": [
+                        {"tags": {"contains": "api"}},
+                        {"project_id": "my-project"},
+                    ]
+                }
+            ]
+        }
 
 
 # =====================================================================
@@ -144,9 +217,9 @@ class TestAddMemory:
     """Test add_memory tool."""
 
     def test_add_memory_calls_client_with_correct_params(self):
-        """Verify memory_client.add is called with correct parameters."""
-        main.memory_client.add.reset_mock()
-        main.memory_client.add.return_value = {"results": [{"id": "abc-123", "memory": "test content"}]}
+        """Verify mem_client.add is called with correct parameters."""
+        main.mem_client.add.reset_mock()
+        main.mem_client.add.return_value = {"results": [{"id": "abc-123", "memory": "test content"}]}
 
         result = main.add_memory(
             content="Test memory content",
@@ -155,8 +228,8 @@ class TestAddMemory:
             source_user="alice"
         )
 
-        main.memory_client.add.assert_called_once()
-        call_args = main.memory_client.add.call_args
+        main.mem_client.add.assert_called_once()
+        call_args = main.mem_client.add.call_args
 
         # Check positional args
         assert call_args[0][0] == "Test memory content"
@@ -176,12 +249,12 @@ class TestAddMemory:
 
     def test_add_memory_validated_at_format(self):
         """Verify validated_at is ISO format with Z suffix."""
-        main.memory_client.add.reset_mock()
-        main.memory_client.add.return_value = {"results": []}
+        main.mem_client.add.reset_mock()
+        main.mem_client.add.return_value = {"results": []}
 
         main.add_memory(content="Test")
 
-        call_args = main.memory_client.add.call_args
+        call_args = main.mem_client.add.call_args
         metadata = call_args[1]["metadata"]
         validated_at = metadata["validated_at"]
 
@@ -192,8 +265,8 @@ class TestAddMemory:
 
     def test_add_memory_includes_all_fields(self):
         """Verify all metadata fields are included, including None values."""
-        main.memory_client.add.reset_mock()
-        main.memory_client.add.return_value = {"results": []}
+        main.mem_client.add.reset_mock()
+        main.mem_client.add.return_value = {"results": []}
 
         main.add_memory(
             content="Test",
@@ -204,7 +277,7 @@ class TestAddMemory:
             related_files=None
         )
 
-        call_args = main.memory_client.add.call_args
+        call_args = main.mem_client.add.call_args
         metadata = call_args[1]["metadata"]
 
         # None fields should be present (explicit absence)
@@ -223,8 +296,8 @@ class TestAddMemory:
 
     def test_add_memory_with_related_files(self):
         """Verify related_files are serialized correctly."""
-        main.memory_client.add.reset_mock()
-        main.memory_client.add.return_value = {"results": []}
+        main.mem_client.add.reset_mock()
+        main.mem_client.add.return_value = {"results": []}
 
         related_files = [
             {"path": "/src/main.py", "entered": "2024-01-01T10:00:00Z"},
@@ -236,15 +309,15 @@ class TestAddMemory:
             related_files=related_files
         )
 
-        call_args = main.memory_client.add.call_args
+        call_args = main.mem_client.add.call_args
         metadata = call_args[1]["metadata"]
 
         assert metadata["related_files"] == related_files
 
     def test_add_memory_error_handling(self):
         """Verify error is returned when add fails."""
-        main.memory_client.add.reset_mock()
-        main.memory_client.add.side_effect = Exception("Connection failed")
+        main.mem_client.add.reset_mock()
+        main.mem_client.add.side_effect = Exception("Connection failed")
 
         result = main.add_memory(content="Test")
 
@@ -261,19 +334,19 @@ class TestSearchMemory:
     """Test search_memory tool."""
 
     def test_search_calls_client_with_user_id(self):
-        """Verify user_id=AGENT_ID is passed to search."""
-        main.memory_client.search.reset_mock()
-        main.memory_client.search.return_value = []
+        """Verify user_id=AGENT_ID is passed in filters to search."""
+        main.mem_client.search.reset_mock()
+        main.mem_client.search.return_value = []
 
         main.search_memory(query="test query")
 
-        call_args = main.memory_client.search.call_args
-        assert call_args[1]["user_id"] == main.AGENT_ID
+        call_args = main.mem_client.search.call_args
+        assert call_args[1]["filters"]["user_id"] == main.AGENT_ID
 
     def test_search_builds_filters_correctly(self):
         """Verify filter construction is used."""
-        main.memory_client.search.reset_mock()
-        main.memory_client.search.return_value = []
+        main.mem_client.search.reset_mock()
+        main.mem_client.search.return_value = []
 
         with patch.object(main, "build_search_filters") as mock_build:
             mock_build.return_value = {"project_id": "test"}
@@ -285,12 +358,12 @@ class TestSearchMemory:
                 source_user="alice"
             )
 
-            mock_build.assert_called_once_with(["api"], "test", "alice")
+            mock_build.assert_called_once_with(["api"], "test", "alice", user_id=main.AGENT_ID)
 
     def test_search_result_formatting(self):
         """Verify results are formatted correctly."""
-        main.memory_client.search.reset_mock()
-        main.memory_client.search.return_value = [
+        main.mem_client.search.reset_mock()
+        main.mem_client.search.return_value = [
             {
                 "id": "abc-def-ghi",
                 "score": 0.85,
@@ -313,8 +386,8 @@ class TestSearchMemory:
 
     def test_search_empty_results(self):
         """Verify empty results message."""
-        main.memory_client.search.reset_mock()
-        main.memory_client.search.return_value = []
+        main.mem_client.search.reset_mock()
+        main.mem_client.search.return_value = []
 
         result = main.search_memory(query="nonexistent")
 
@@ -322,8 +395,8 @@ class TestSearchMemory:
 
     def test_search_error_handling(self):
         """Verify error is returned when search fails."""
-        main.memory_client.search.reset_mock()
-        main.memory_client.search.side_effect = Exception("Search timeout")
+        main.mem_client.search.reset_mock()
+        main.mem_client.search.side_effect = Exception("Search timeout")
 
         result = main.search_memory(query="test")
 
@@ -340,20 +413,20 @@ class TestDeleteMemory:
     """Test delete_memory tool."""
 
     def test_delete_calls_client_with_correct_id(self):
-        """Verify memory_client.delete is called with correct ID."""
-        main.memory_client.delete.reset_mock()
-        main.memory_client.delete.return_value = None
+        """Verify mem_client.delete is called with correct ID."""
+        main.mem_client.delete.reset_mock()
+        main.mem_client.delete.return_value = None
 
         result = main.delete_memory("memory-uuid-123")
 
-        main.memory_client.delete.assert_called_once_with("memory-uuid-123")
+        main.mem_client.delete.assert_called_once_with("memory-uuid-123")
         assert "successfully" in result.lower()
         assert "memory-uuid-123" in result
 
     def test_delete_error_handling(self):
         """Verify error is returned when delete fails."""
-        main.memory_client.delete.reset_mock()
-        main.memory_client.delete.side_effect = Exception("Memory not found")
+        main.mem_client.delete.reset_mock()
+        main.mem_client.delete.side_effect = Exception("Memory not found")
 
         result = main.delete_memory("invalid-id")
 
@@ -545,8 +618,8 @@ class TestListProjects:
 
     def test_list_projects_extracts_unique_ids(self):
         """Verify unique project_ids are extracted from memories."""
-        main.memory_client.get_all.reset_mock()
-        main.memory_client.get_all.return_value = [
+        main.mem_client.get_all.reset_mock()
+        main.mem_client.get_all.return_value = [
             {"id": "1", "metadata": {"project_id": "project-a"}},
             {"id": "2", "metadata": {"project_id": "project-b"}},
             {"id": "3", "metadata": {"project_id": "project-a"}},  # Duplicate
@@ -555,7 +628,7 @@ class TestListProjects:
 
         result = main.list_projects()
 
-        main.memory_client.get_all.assert_called_once()
+        main.mem_client.get_all.assert_called_once()
         assert "project-a" in result
         assert "project-b" in result
         assert "project-c" in result
@@ -564,8 +637,8 @@ class TestListProjects:
 
     def test_list_projects_returns_sorted(self):
         """Verify projects are returned sorted."""
-        main.memory_client.get_all.reset_mock()
-        main.memory_client.get_all.return_value = [
+        main.mem_client.get_all.reset_mock()
+        main.mem_client.get_all.return_value = [
             {"id": "1", "metadata": {"project_id": "zebra"}},
             {"id": "2", "metadata": {"project_id": "alpha"}},
             {"id": "3", "metadata": {"project_id": "beta"}},
@@ -582,8 +655,8 @@ class TestListProjects:
 
     def test_list_projects_empty_store(self):
         """Verify message when no projects found."""
-        main.memory_client.get_all.reset_mock()
-        main.memory_client.get_all.return_value = []
+        main.mem_client.get_all.reset_mock()
+        main.mem_client.get_all.return_value = []
 
         result = main.list_projects()
 
@@ -591,8 +664,8 @@ class TestListProjects:
 
     def test_list_projects_no_project_id_in_metadata(self):
         """Verify memories without project_id are skipped."""
-        main.memory_client.get_all.reset_mock()
-        main.memory_client.get_all.return_value = [
+        main.mem_client.get_all.reset_mock()
+        main.mem_client.get_all.return_value = [
             {"id": "1", "metadata": {"tags": ["api"]}},  # No project_id
             {"id": "2", "metadata": {"project_id": "valid-project"}},
         ]
@@ -605,47 +678,47 @@ class TestListProjects:
     def test_list_projects_fallback_to_search(self):
         """Verify fallback to search if get_all doesn't exist."""
         # Store original get_all and search
-        original_get_all = main.memory_client.get_all
-        original_search = main.memory_client.search
+        original_get_all = main.mem_client.get_all
+        original_search = main.mem_client.search
 
         try:
             # Remove get_all to trigger fallback
-            delattr(main.memory_client, "get_all")
-            main.memory_client.search = MagicMock(return_value=[
+            delattr(main.mem_client, "get_all")
+            main.mem_client.search = MagicMock(return_value=[
                 {"id": "1", "metadata": {"project_id": "fallback-project"}}
             ])
 
             result = main.list_projects()
 
-            main.memory_client.search.assert_called_once()
+            main.mem_client.search.assert_called_once()
             assert "fallback-project" in result
         finally:
             # Restore original methods
-            main.memory_client.get_all = original_get_all
-            main.memory_client.search = original_search
+            main.mem_client.get_all = original_get_all
+            main.mem_client.search = original_search
 
     def test_list_projects_error_handling(self):
         """Verify error is returned when listing fails."""
-        main.memory_client.get_all.reset_mock()
-        main.memory_client.get_all.side_effect = Exception("Database error")
+        main.mem_client.get_all.reset_mock()
+        main.mem_client.get_all.side_effect = Exception("Database error")
 
         result = main.list_projects()
 
         assert "error" in result.lower()
 
         # Reset side effect
-        main.memory_client.get_all.side_effect = None
+        main.mem_client.get_all.side_effect = None
 
-    def test_list_projects_user_id_as_param(self):
-        """Verify user_id is passed as parameter, not in filters dict."""
-        main.memory_client.get_all.reset_mock()
-        main.memory_client.get_all.return_value = []
+    def test_list_projects_user_id_in_filters(self):
+        """Verify user_id is passed inside filters dict."""
+        main.mem_client.get_all.reset_mock()
+        main.mem_client.get_all.return_value = []
 
         main.list_projects()
 
-        call_kwargs = main.memory_client.get_all.call_args[1]
-        assert call_kwargs.get("user_id") == main.AGENT_ID
-        assert "user_id" not in call_kwargs.get("filters", {})
+        call_kwargs = main.mem_client.get_all.call_args[1]
+        assert "user_id" in call_kwargs.get("filters", {})
+        assert call_kwargs["filters"]["user_id"] == main.AGENT_ID
 
 
 # =====================================================================
@@ -656,80 +729,169 @@ class TestListProjects:
 class TestBuildGoalFilters:
     """Test build_goal_filters helper function."""
 
-    def test_empty_returns_empty_dict(self):
-        """All None returns empty dict."""
-        result = main.build_goal_filters(None, None, None, None, None, None, None)
-        assert result == {}
+    def test_empty_returns_user_id_only(self):
+        """All None returns user_id-only dict."""
+        result = main.build_goal_filters(None, None, None, None, None, None, None, main.AGENT_ID)
+        assert result == {"user_id": main.AGENT_ID}
 
     def test_node_type_filter(self):
-        """Node type filter uses eq."""
-        result = main.build_goal_filters("goal", None, None, None, None, None, None)
-        assert result == {"node_type": {"eq": "goal"}}
+        """Node type filter uses eq, wrapped with user_id."""
+        result = main.build_goal_filters("goal", None, None, None, None, None, None, main.AGENT_ID)
+        assert result == {
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {"node_type": {"eq": "goal"}}
+            ]
+        }
 
     def test_root_id_filter(self):
-        """Root ID filter uses eq."""
-        result = main.build_goal_filters(None, "root-123", None, None, None, None, None)
-        assert result == {"root_id": {"eq": "root-123"}}
+        """Root ID filter uses eq, wrapped with user_id."""
+        result = main.build_goal_filters(None, "root-123", None, None, None, None, None, main.AGENT_ID)
+        assert result == {
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {"root_id": {"eq": "root-123"}}
+            ]
+        }
 
     def test_parent_id_filter(self):
-        """Parent ID filter uses eq."""
-        result = main.build_goal_filters(None, None, "parent-456", None, None, None, None)
-        assert result == {"parent_id": {"eq": "parent-456"}}
+        """Parent ID filter uses eq, wrapped with user_id."""
+        result = main.build_goal_filters(None, None, "parent-456", None, None, None, None, main.AGENT_ID)
+        assert result == {
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {"parent_id": {"eq": "parent-456"}}
+            ]
+        }
 
     def test_session_id_filter(self):
-        """Session ID filter uses eq."""
-        result = main.build_goal_filters(None, None, None, "session-1", None, None, None)
-        assert result == {"session_id": {"eq": "session-1"}}
+        """Session ID filter uses eq, wrapped with user_id."""
+        result = main.build_goal_filters(None, None, None, "session-1", None, None, None, main.AGENT_ID)
+        assert result == {
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {"session_id": {"eq": "session-1"}}
+            ]
+        }
 
     def test_status_filter(self):
-        """Status filter uses eq."""
-        result = main.build_goal_filters(None, None, None, None, "active", None, None)
-        assert result == {"status": {"eq": "active"}}
+        """Status filter uses eq, wrapped with user_id."""
+        result = main.build_goal_filters(None, None, None, None, "active", None, None, main.AGENT_ID)
+        assert result == {
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {"status": {"eq": "active"}}
+            ]
+        }
 
     def test_project_id_filter(self):
-        """Project ID filter uses eq."""
-        result = main.build_goal_filters(None, None, None, None, None, "proj-x", None)
-        assert result == {"project_id": {"eq": "proj-x"}}
+        """Project ID filter uses eq, wrapped with user_id."""
+        result = main.build_goal_filters(None, None, None, None, None, "proj-x", None, main.AGENT_ID)
+        assert result == {
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {"project_id": {"eq": "proj-x"}}
+            ]
+        }
 
     def test_single_tag_uses_contains(self):
-        """Single tag creates contains filter."""
-        result = main.build_goal_filters(None, None, None, None, None, None, ["api"])
-        assert result == {"tags": {"contains": "api"}}
+        """Single tag creates contains filter, wrapped with user_id."""
+        result = main.build_goal_filters(None, None, None, None, None, None, ["api"], main.AGENT_ID)
+        assert result == {
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {"tags": {"contains": "api"}}
+            ]
+        }
 
     def test_multiple_tags_use_or(self):
-        """Multiple tags use OR logic."""
-        result = main.build_goal_filters(None, None, None, None, None, None, ["a", "b"])
+        """Multiple tags use OR logic, wrapped with user_id."""
+        result = main.build_goal_filters(None, None, None, None, None, None, ["a", "b"], main.AGENT_ID)
         assert result == {
-            "OR": [
-                {"tags": {"contains": "a"}},
-                {"tags": {"contains": "b"}},
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {
+                    "OR": [
+                        {"tags": {"contains": "a"}},
+                        {"tags": {"contains": "b"}},
+                    ]
+                }
             ]
         }
 
     def test_tags_empty_list_ignored(self):
-        """Empty tags list is ignored (no filter condition)."""
-        result = main.build_goal_filters(None, None, None, None, None, None, [])
-        assert result == {}
+        """Empty tags list is ignored — only user_id returned."""
+        result = main.build_goal_filters(None, None, None, None, None, None, [], main.AGENT_ID)
+        assert result == {"user_id": main.AGENT_ID}
 
     def test_multiple_conditions_use_and(self):
-        """Multiple conditions use AND logic."""
-        result = main.build_goal_filters("goal", "root-1", None, None, "active", None, None)
+        """Multiple conditions use AND logic with user_id."""
+        result = main.build_goal_filters("goal", "root-1", None, None, "active", None, None, main.AGENT_ID)
         assert result == {
             "AND": [
-                {"node_type": {"eq": "goal"}},
-                {"root_id": {"eq": "root-1"}},
-                {"status": {"eq": "active"}},
+                {"user_id": main.AGENT_ID},
+                {
+                    "AND": [
+                        {"node_type": {"eq": "goal"}},
+                        {"root_id": {"eq": "root-1"}},
+                        {"status": {"eq": "active"}},
+                    ]
+                }
             ]
         }
 
     def test_tag_plus_other_conditions_use_and(self):
-        """Tags combined with other conditions use AND."""
-        result = main.build_goal_filters(None, None, None, None, None, "proj-x", ["tag1"])
+        """Tags combined with other conditions use AND with user_id."""
+        result = main.build_goal_filters(None, None, None, None, None, "proj-x", ["tag1"], main.AGENT_ID)
         assert "AND" in result
         assert len(result["AND"]) == 2
-        # project_id is appended before tags in build_goal_filters
-        assert result["AND"][0] == {"project_id": {"eq": "proj-x"}}
-        assert result["AND"][1] == {"tags": {"contains": "tag1"}}
+        assert result["AND"][0] == {"user_id": main.AGENT_ID}
+        inner_and = result["AND"][1]
+        assert len(inner_and["AND"]) == 2
+        assert inner_and["AND"][0] == {"project_id": {"eq": "proj-x"}}
+        assert inner_and["AND"][1] == {"tags": {"contains": "tag1"}}
+
+    # --- New user_id-specific test cases ---
+
+    def test_goal_user_id_alone(self):
+        """user_id alone returns user_id-only dict."""
+        result = main.build_goal_filters(None, None, None, None, None, None, None, main.AGENT_ID)
+        assert result == {"user_id": main.AGENT_ID}
+
+    def test_goal_user_id_with_tags(self):
+        """user_id + tags produces AND wrapping both."""
+        result = main.build_goal_filters(None, None, None, None, None, None, ["api"], main.AGENT_ID)
+        assert result == {
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {"tags": {"contains": "api"}}
+            ]
+        }
+
+    def test_goal_user_id_with_project(self):
+        """user_id + project produces AND wrapping both."""
+        result = main.build_goal_filters(None, None, None, None, None, "proj-x", None, main.AGENT_ID)
+        assert result == {
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {"project_id": {"eq": "proj-x"}}
+            ]
+        }
+
+    def test_goal_user_id_with_tags_and_project(self):
+        """user_id + tags + project produces AND wrapping all three."""
+        result = main.build_goal_filters(None, None, None, None, None, "proj-x", ["api"], main.AGENT_ID)
+        assert result == {
+            "AND": [
+                {"user_id": main.AGENT_ID},
+                {
+                    "AND": [
+                        {"project_id": {"eq": "proj-x"}},
+                        {"tags": {"contains": "api"}},
+                    ]
+                }
+            ]
+        }
 
 
 # =====================================================================
@@ -879,10 +1041,10 @@ class TestAddGoalNode:
         assert "root_id" in result.lower()
 
     def test_valid_call_builds_correct_metadata(self):
-        """Verify memory_client.add is called with correct metadata."""
-        main.memory_client.add.reset_mock()
-        main.memory_client.add.side_effect = None
-        main.memory_client.add.return_value = {"results": [{"id": "new-id"}]}
+        """Verify goal_client.add is called with correct metadata."""
+        main.goal_client.add.reset_mock()
+        main.goal_client.add.side_effect = None
+        main.goal_client.add.return_value = {"results": [{"id": "new-id"}]}
 
         result = main.add_goal_node(
             main.AddGoalNodeInput(
@@ -895,8 +1057,8 @@ class TestAddGoalNode:
             )
         )
 
-        main.memory_client.add.assert_called_once()
-        call_args = main.memory_client.add.call_args
+        main.goal_client.add.assert_called_once()
+        call_args = main.goal_client.add.call_args
 
         # Check positional arg (content)
         assert call_args[0][0] == "Test goal"
@@ -920,9 +1082,9 @@ class TestAddGoalNode:
 
     def test_valid_child_goal_uses_provided_root_id(self):
         """Child node uses provided root_id."""
-        main.memory_client.add.reset_mock()
-        main.memory_client.add.side_effect = None
-        main.memory_client.add.return_value = {"results": [{"id": "child-id"}]}
+        main.goal_client.add.reset_mock()
+        main.goal_client.add.side_effect = None
+        main.goal_client.add.return_value = {"results": [{"id": "child-id"}]}
 
         result = main.add_goal_node(
             main.AddGoalNodeInput(
@@ -933,7 +1095,7 @@ class TestAddGoalNode:
             )
         )
 
-        call_args = main.memory_client.add.call_args
+        call_args = main.goal_client.add.call_args
         metadata = call_args[1]["metadata"]
         assert metadata["parent_id"] == "parent-uuid"
         assert metadata["root_id"] == "root-uuid"
@@ -941,14 +1103,14 @@ class TestAddGoalNode:
 
     def test_root_goal_sets_root_id_to_node_id(self):
         """Root goal sets root_id equal to its own generated ID."""
-        main.memory_client.add.reset_mock()
-        main.memory_client.add.return_value = {"results": [{"id": "new-id"}]}
+        main.goal_client.add.reset_mock()
+        main.goal_client.add.return_value = {"results": [{"id": "new-id"}]}
 
         main.add_goal_node(
             main.AddGoalNodeInput(content="Root goal", node_type="goal")
         )
 
-        call_args = main.memory_client.add.call_args
+        call_args = main.goal_client.add.call_args
         metadata = call_args[1]["metadata"]
         # root_id should be auto-generated and not None
         assert metadata["root_id"] is not None
@@ -959,8 +1121,8 @@ class TestAddGoalNode:
 
     def test_error_handling(self):
         """Verify error is returned when add fails."""
-        main.memory_client.add.reset_mock()
-        main.memory_client.add.side_effect = Exception("Connection failed")
+        main.goal_client.add.reset_mock()
+        main.goal_client.add.side_effect = Exception("Connection failed")
 
         result = main.add_goal_node(
             main.AddGoalNodeInput(content="Test", node_type="goal")
@@ -971,14 +1133,14 @@ class TestAddGoalNode:
 
     def test_infer_defaults_to_false(self):
         """Verify infer defaults to False for goal nodes (not True like memories)."""
-        main.memory_client.add.reset_mock()
-        main.memory_client.add.return_value = {"results": []}
+        main.goal_client.add.reset_mock()
+        main.goal_client.add.return_value = {"results": []}
 
         main.add_goal_node(
             main.AddGoalNodeInput(content="Test", node_type="goal")
         )
 
-        call_args = main.memory_client.add.call_args
+        call_args = main.goal_client.add.call_args
         assert call_args[1]["infer"] is False
 
 
@@ -992,8 +1154,8 @@ class TestSearchGoalNodes:
 
     def test_filter_building(self):
         """Verify build_goal_filters is used correctly with user_id."""
-        main.memory_client.search.reset_mock()
-        main.memory_client.search.return_value = []
+        main.goal_client.search.reset_mock()
+        main.goal_client.search.return_value = []
 
         with patch.object(main, "build_goal_filters") as mock_build:
             mock_build.return_value = {"node_type": {"eq": "task"}}
@@ -1015,25 +1177,26 @@ class TestSearchGoalNodes:
                 status=None,
                 project_id="proj-x",
                 tags=["api"],
+                user_id=main.AGENT_ID,
             )
 
-    def test_user_id_passed_to_search(self):
-        """Verify user_id=AGENT_ID is passed to search."""
-        main.memory_client.search.reset_mock()
-        main.memory_client.search.return_value = []
+    def test_user_id_in_filters(self):
+        """Verify user_id=AGENT_ID is passed in filters to search."""
+        main.goal_client.search.reset_mock()
+        main.goal_client.search.return_value = []
 
         main.search_goal_nodes(
             main.SearchGoalNodesInput(query="test query")
         )
 
-        call_args = main.memory_client.search.call_args
-        assert call_args[1]["user_id"] == main.AGENT_ID
+        call_args = main.goal_client.search.call_args
+        assert call_args[1]["filters"]["user_id"] == main.AGENT_ID
 
     def test_result_formatting(self):
         """Verify results are formatted correctly."""
-        main.memory_client.search.reset_mock()
-        main.memory_client.search.side_effect = None
-        main.memory_client.search.return_value = [
+        main.goal_client.search.reset_mock()
+        main.goal_client.search.side_effect = None
+        main.goal_client.search.return_value = [
             {
                 "id": "goal-node-abc-def",
                 "score": 0.85,
@@ -1062,9 +1225,9 @@ class TestSearchGoalNodes:
 
     def test_empty_results(self):
         """Verify empty results message."""
-        main.memory_client.search.reset_mock()
-        main.memory_client.search.side_effect = None
-        main.memory_client.search.return_value = []
+        main.goal_client.search.reset_mock()
+        main.goal_client.search.side_effect = None
+        main.goal_client.search.return_value = []
 
         result = main.search_goal_nodes(
             main.SearchGoalNodesInput(query="nonexistent")
@@ -1074,9 +1237,9 @@ class TestSearchGoalNodes:
 
     def test_threshold_filtering(self):
         """Verify threshold filters low-scoring results."""
-        main.memory_client.search.reset_mock()
-        main.memory_client.search.side_effect = None
-        main.memory_client.search.return_value = [
+        main.goal_client.search.reset_mock()
+        main.goal_client.search.side_effect = None
+        main.goal_client.search.return_value = [
             {"id": "a", "score": 0.95, "memory": "High score",
              "metadata": {"node_type": "goal", "status": "active", "tags": []}},
             {"id": "b", "score": 0.05, "memory": "Low score",
@@ -1092,8 +1255,8 @@ class TestSearchGoalNodes:
 
     def test_error_handling(self):
         """Verify error is returned when search fails."""
-        main.memory_client.search.reset_mock()
-        main.memory_client.search.side_effect = Exception("Search timeout")
+        main.goal_client.search.reset_mock()
+        main.goal_client.search.side_effect = Exception("Search timeout")
 
         result = main.search_goal_nodes(
             main.SearchGoalNodesInput(query="test")
@@ -1113,8 +1276,8 @@ class TestGetGoalTree:
 
     def test_get_all_called_with_correct_filters(self):
         """Verify get_all is called with correct filters."""
-        main.memory_client.get_all.reset_mock()
-        main.memory_client.get_all.return_value = [
+        main.goal_client.get_all.reset_mock()
+        main.goal_client.get_all.return_value = [
             {"id": "root-1", "memory": "Root",
              "metadata": {"root_id": "root-1", "parent_id": None,
                           "node_type": "goal", "status": "active", "tags": []}},
@@ -1122,21 +1285,21 @@ class TestGetGoalTree:
 
         main.get_goal_tree(main.GetGoalTreeInput(root_id="root-1"))
 
-        main.memory_client.get_all.assert_called_once()
-        call_args = main.memory_client.get_all.call_args[1]
-        assert call_args["filters"]["root_id"] == {"eq": "root-1"}
-        assert call_args["filters"]["node_type"] == {"in": ["goal", "task", "subtask"]}
-        assert call_args["user_id"] == main.AGENT_ID
+        main.goal_client.get_all.assert_called_once()
+        call_args = main.goal_client.get_all.call_args[1]
+        assert call_args["filters"]["AND"][0]["user_id"] == main.AGENT_ID
+        assert call_args["filters"]["AND"][1]["root_id"] == {"eq": "root-1"}
+        assert call_args["filters"]["AND"][1]["node_type"] == {"in": ["goal", "task", "subtask"]}
         assert call_args["limit"] == 1000
 
     def test_fallback_to_search(self):
         """Verify fallback to search when get_all fails."""
-        original_get_all = main.memory_client.get_all
-        original_search = main.memory_client.search
+        original_get_all = main.goal_client.get_all
+        original_search = main.goal_client.search
 
         try:
-            delattr(main.memory_client, "get_all")
-            main.memory_client.search = MagicMock(return_value=[
+            delattr(main.goal_client, "get_all")
+            main.goal_client.search = MagicMock(return_value=[
                 {"id": "root-1", "memory": "Root",
                  "metadata": {"root_id": "root-1", "parent_id": None,
                               "node_type": "goal", "status": "active", "tags": []}},
@@ -1144,16 +1307,16 @@ class TestGetGoalTree:
 
             result = main.get_goal_tree(main.GetGoalTreeInput(root_id="root-1"))
 
-            main.memory_client.search.assert_called_once()
+            main.goal_client.search.assert_called_once()
             assert "Root" in result
         finally:
-            main.memory_client.get_all = original_get_all
-            main.memory_client.search = original_search
+            main.goal_client.get_all = original_get_all
+            main.goal_client.search = original_search
 
     def test_missing_root_returns_error_json(self):
         """Missing root returns error JSON."""
-        main.memory_client.get_all.reset_mock()
-        main.memory_client.get_all.return_value = []
+        main.goal_client.get_all.reset_mock()
+        main.goal_client.get_all.return_value = []
 
         result = main.get_goal_tree(main.GetGoalTreeInput(root_id="nonexistent"))
 
@@ -1162,8 +1325,8 @@ class TestGetGoalTree:
 
     def test_tree_reconstruction(self):
         """Verify nested tree is reconstructed correctly."""
-        main.memory_client.get_all.reset_mock()
-        main.memory_client.get_all.return_value = [
+        main.goal_client.get_all.reset_mock()
+        main.goal_client.get_all.return_value = [
             {"id": "root-1", "memory": "Root goal",
              "metadata": {"root_id": "root-1", "parent_id": None,
                           "node_type": "goal", "status": "active", "tags": []}},
@@ -1185,8 +1348,8 @@ class TestGetGoalTree:
 
     def test_error_handling(self):
         """Verify error is returned when fetching fails."""
-        main.memory_client.get_all.reset_mock()
-        main.memory_client.get_all.side_effect = Exception("Qdrant timeout")
+        main.goal_client.get_all.reset_mock()
+        main.goal_client.get_all.side_effect = Exception("Qdrant timeout")
 
         result = main.get_goal_tree(main.GetGoalTreeInput(root_id="root-1"))
 
@@ -1212,15 +1375,15 @@ class TestUpdateGoalNode:
 
     def test_partial_metadata_update(self):
         """Verify only provided fields are included in metadata update."""
-        main.memory_client.update.reset_mock()
-        main.memory_client.update.return_value = None
+        main.goal_client.update.reset_mock()
+        main.goal_client.update.return_value = None
 
         main.update_goal_node(
             main.UpdateGoalNodeInput(node_id="abc-123", status="completed")
         )
 
-        main.memory_client.update.assert_called_once()
-        call_args = main.memory_client.update.call_args
+        main.goal_client.update.assert_called_once()
+        call_args = main.goal_client.update.call_args
 
         # First positional arg is node_id
         assert call_args[0][0] == "abc-123"
@@ -1229,20 +1392,20 @@ class TestUpdateGoalNode:
 
     def test_update_with_content(self):
         """Verify content is passed as data param."""
-        main.memory_client.update.reset_mock()
-        main.memory_client.update.return_value = None
+        main.goal_client.update.reset_mock()
+        main.goal_client.update.return_value = None
 
         main.update_goal_node(
             main.UpdateGoalNodeInput(node_id="abc-123", content="Updated content")
         )
 
-        call_args = main.memory_client.update.call_args
+        call_args = main.goal_client.update.call_args
         assert call_args[1]["data"] == "Updated content"
 
     def test_multiple_fields_update(self):
         """Verify multiple fields are updated correctly."""
-        main.memory_client.update.reset_mock()
-        main.memory_client.update.return_value = None
+        main.goal_client.update.reset_mock()
+        main.goal_client.update.return_value = None
 
         main.update_goal_node(
             main.UpdateGoalNodeInput(
@@ -1253,7 +1416,7 @@ class TestUpdateGoalNode:
             )
         )
 
-        call_args = main.memory_client.update.call_args
+        call_args = main.goal_client.update.call_args
         metadata = call_args[1]["metadata"]
         assert metadata == {
             "status": "blocked",
@@ -1263,21 +1426,21 @@ class TestUpdateGoalNode:
 
     def test_update_without_content_passes_none(self):
         """Verify data=None when content not provided."""
-        main.memory_client.update.reset_mock()
-        main.memory_client.update.return_value = None
+        main.goal_client.update.reset_mock()
+        main.goal_client.update.return_value = None
 
         main.update_goal_node(
             main.UpdateGoalNodeInput(node_id="abc-123", status="completed")
         )
 
-        call_args = main.memory_client.update.call_args
+        call_args = main.goal_client.update.call_args
         # data should be None when content not provided
         assert call_args[1]["data"] is None
 
     def test_error_handling(self):
         """Verify error is returned when update fails."""
-        main.memory_client.update.reset_mock()
-        main.memory_client.update.side_effect = Exception("Update failed")
+        main.goal_client.update.reset_mock()
+        main.goal_client.update.side_effect = Exception("Update failed")
 
         result = main.update_goal_node(
             main.UpdateGoalNodeInput(node_id="abc-123", status="completed")
@@ -1296,23 +1459,23 @@ class TestDeleteGoalNode:
     """Test delete_goal_node tool."""
 
     def test_deletes_correct_node_id(self):
-        """Verify memory_client.delete is called with correct ID."""
-        main.memory_client.delete.reset_mock()
-        main.memory_client.delete.side_effect = None
-        main.memory_client.delete.return_value = None
+        """Verify goal_client.delete is called with correct ID."""
+        main.goal_client.delete.reset_mock()
+        main.goal_client.delete.side_effect = None
+        main.goal_client.delete.return_value = None
 
         result = main.delete_goal_node(
             main.DeleteGoalNodeInput(node_id="goal-uuid-123")
         )
 
-        main.memory_client.delete.assert_called_once_with("goal-uuid-123")
+        main.goal_client.delete.assert_called_once_with("goal-uuid-123")
         assert "successfully" in result.lower()
         assert "goal-uuid-123" in result
 
     def test_error_handling(self):
         """Verify error is returned when delete fails."""
-        main.memory_client.delete.reset_mock()
-        main.memory_client.delete.side_effect = Exception("Goal node not found")
+        main.goal_client.delete.reset_mock()
+        main.goal_client.delete.side_effect = Exception("Goal node not found")
 
         result = main.delete_goal_node(
             main.DeleteGoalNodeInput(node_id="invalid-id")

@@ -1,5 +1,11 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "mcp-proxy-server": {
+      "type": "remote",
+      "url": "http://0.0.0.0:8000/mcp"
+    }
+  },
   "agent": {
     "coordinator": {
       "description": "Orchestrator — Sole user contact. Owns goals, workflow direction, delegation, and approval gates. Never designs, codes, explores, or reviews. Spawns System Thinker (design), Implementer (code), Reviewer (verify), Explorer (scout).",
@@ -10,7 +16,7 @@
         "bash": {
           "head *": "allow",
           "wc *": "allow",
-          "cat *": "allow",   
+          "cat *": "allow",
           "git status": "allow",
           "git diff *": "allow",
           "git log *": "allow",
@@ -118,7 +124,6 @@
           "head *": "allow",
           "*": "ask"
         },
-        
         "webfetch": "deny",
         "websearch": "deny"
       }

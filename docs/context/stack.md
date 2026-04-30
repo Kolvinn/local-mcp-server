@@ -7,6 +7,9 @@
 
 ## Environment
 - the `.env` file in the app root directory contains the appropriate env vars that should either be injected into the framework, or readfrom
+- BUNX REPLACES NPX
+- CONDA MANAGES BUN, PYTHON, UV, ETC.
+- THIS CURRENT ENVIRONMENT IS CALLED 'dev1'. This is where everything is installed 
 
 ## Frameworks & Libraries
 - MCP Server: FastMCP (streamable-http transport)
