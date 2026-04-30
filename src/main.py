@@ -11,7 +11,7 @@ import yaml
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
-
+from mem0 import Memory
 # Load environment variables
 load_dotenv()
 
@@ -27,7 +27,7 @@ LLM_MODEL = os.getenv("LLM_MODEL", "llama3.1:8b")
 AGENT_ID = os.getenv("AGENT_ID", "default_agent")
 STALENESS_WINDOW_DAYS = int(os.getenv("STALENESS_WINDOW_DAYS", "30"))
 HOST = os.getenv("HOST", "0.0.0.0")
-PORT = int(os.getenv("PORT", "8000"))
+PORT = int(os.getenv("MCP_MEM0_PORT", "8001"))
 MEMORY_CONTEXT_BASE = Path(os.getenv("MEMORY_CONTEXT_BASE", "/home/dev/app")).resolve()
 
 # =====================================================================
@@ -51,12 +51,6 @@ def init_memory_client():
     if memory_client is not None:
         return memory_client
 
-    try:
-        from mem0 import Memory
-    except ImportError:
-        # For testing environments where mem0 isn't installed
-        raise ImportError("mem0 is required but not installed")
-
     config = {
         "vector_store": {
             "provider": "qdrant",
@@ -69,14 +63,14 @@ def init_memory_client():
             "provider": "ollama",
             "config": {
                 "model": LLM_MODEL,
-                "base_url": OLLAMA_URL
+                "ollama_base_url": OLLAMA_URL
             }
         },
         "embedder": {
             "provider": "ollama",
             "config": {
                 "model": EMBEDDING_MODEL,
-                "base_url": OLLAMA_URL
+                "ollama_base_url": OLLAMA_URL
             }
         }
     }
@@ -781,4 +775,4 @@ def delete_goal_node(input: DeleteGoalNodeInput) -> str:
 # =====================================================================
 
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http", host=HOST, port=PORT)
+    mcp.run()

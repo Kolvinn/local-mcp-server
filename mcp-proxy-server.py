@@ -45,39 +45,42 @@ PERMISSION_TO_TOOLS = {
     ]
 }
 
-# =====================================================================
-# 2. ORCHESTRATOR INITIALIZATION
-# =====================================================================
-# We instantiate the main server. Agents will connect to this instance.
+
 mcp = FastMCP("CompositeOrchestrator")
 
-# =====================================================================
-# 3. PROXY CONFIGURATION
-# =====================================================================
-# Define downstream services.
-# - sequential_thinking runs as a local stdio subprocess.
-# - memory_server runs as a separate HTTP/SSE service (as defined in mcp-memory.py).
-proxy_config = {
-    "mcpServers": {
-        "sequential_thinking": {
-            "command": "bunx",
-            "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
-            "headers": {"Accept": "application/json, text/event-stream"},
-        },
-        "memory": {
-            # Assuming main.py is running independently on port 8000
-            "url": "http://localhost:8000/mcp",
-            "headers": {"Accept": "application/json, text/event-stream"},
-        }
-    }
-}
+def mount_proxies(mcp: FastMCP):
+    # =====================================================================
+    # INDIVIDUAL PROXY MOUNTING (The Modular Way)
+    # =====================================================================
 
-# Mount the proxies. FastMCP automatically prefixes tools with the namespace.
-# E.g., `add_memory` becomes `memory__add_memory`.
-proxy_instance = create_proxy(proxy_config)
-# Empty namespace to preserve dict keys as prefixes
-mcp.mount(proxy_instance, namespace="")
+    # 1. Mount Sequential Thinking
+    try:
+        seq_proxy = create_proxy({
+            "mcpServers": {
+                "sequential_thinking": {
+                    "command": "bunx",
+                    "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+                }
+            }
+        })
+        mcp.mount(seq_proxy, namespace="") # Namespace is empty to use the dict key prefix[cite: 1]
+    except Exception as e:
+        print(f"Failed to mount Sequential Thinking: {e}")
 
+    # 2. Mount Memory Server (with persistence fix)
+    try:
+        mem_proxy = create_proxy({
+            "mcpServers": {
+                "memory": {
+                    "command": "python",
+                    "args": ["./src/main.py"],
+                    "env": {"PYTHONUNBUFFERED": "1"} # Ensures stdio persistence[cite: 1]
+                }
+            }
+        })
+        mcp.mount(mem_proxy, namespace="") 
+    except Exception as e:
+        print(f"Failed to mount Memory Server: {e}")
 
 # =====================================================================
 # 4. DISCOVERY & GATEKEEPING TOOLS
@@ -131,4 +134,5 @@ def verify_access(agent_id: str, tool_name: str) -> str:
 # =====================================================================
 if __name__ == "__main__":
     # The orchestrator listens on the configured port (default: 8000)
+    mount_proxies(mcp)
     mcp.run(transport="streamable-http", host="0.0.0.0", port=PORT)
