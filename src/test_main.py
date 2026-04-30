@@ -649,6 +649,680 @@ class TestListProjects:
 
 
 # =====================================================================
+# 10. BUILD_GOAL_FILTERS TESTS
+# =====================================================================
+
+
+class TestBuildGoalFilters:
+    """Test build_goal_filters helper function."""
+
+    def test_empty_returns_empty_dict(self):
+        """All None returns empty dict."""
+        result = main.build_goal_filters(None, None, None, None, None, None, None)
+        assert result == {}
+
+    def test_node_type_filter(self):
+        """Node type filter uses eq."""
+        result = main.build_goal_filters("goal", None, None, None, None, None, None)
+        assert result == {"node_type": {"eq": "goal"}}
+
+    def test_root_id_filter(self):
+        """Root ID filter uses eq."""
+        result = main.build_goal_filters(None, "root-123", None, None, None, None, None)
+        assert result == {"root_id": {"eq": "root-123"}}
+
+    def test_parent_id_filter(self):
+        """Parent ID filter uses eq."""
+        result = main.build_goal_filters(None, None, "parent-456", None, None, None, None)
+        assert result == {"parent_id": {"eq": "parent-456"}}
+
+    def test_session_id_filter(self):
+        """Session ID filter uses eq."""
+        result = main.build_goal_filters(None, None, None, "session-1", None, None, None)
+        assert result == {"session_id": {"eq": "session-1"}}
+
+    def test_status_filter(self):
+        """Status filter uses eq."""
+        result = main.build_goal_filters(None, None, None, None, "active", None, None)
+        assert result == {"status": {"eq": "active"}}
+
+    def test_project_id_filter(self):
+        """Project ID filter uses eq."""
+        result = main.build_goal_filters(None, None, None, None, None, "proj-x", None)
+        assert result == {"project_id": {"eq": "proj-x"}}
+
+    def test_single_tag_uses_contains(self):
+        """Single tag creates contains filter."""
+        result = main.build_goal_filters(None, None, None, None, None, None, ["api"])
+        assert result == {"tags": {"contains": "api"}}
+
+    def test_multiple_tags_use_or(self):
+        """Multiple tags use OR logic."""
+        result = main.build_goal_filters(None, None, None, None, None, None, ["a", "b"])
+        assert result == {
+            "OR": [
+                {"tags": {"contains": "a"}},
+                {"tags": {"contains": "b"}},
+            ]
+        }
+
+    def test_tags_empty_list_ignored(self):
+        """Empty tags list is ignored (no filter condition)."""
+        result = main.build_goal_filters(None, None, None, None, None, None, [])
+        assert result == {}
+
+    def test_multiple_conditions_use_and(self):
+        """Multiple conditions use AND logic."""
+        result = main.build_goal_filters("goal", "root-1", None, None, "active", None, None)
+        assert result == {
+            "AND": [
+                {"node_type": {"eq": "goal"}},
+                {"root_id": {"eq": "root-1"}},
+                {"status": {"eq": "active"}},
+            ]
+        }
+
+    def test_tag_plus_other_conditions_use_and(self):
+        """Tags combined with other conditions use AND."""
+        result = main.build_goal_filters(None, None, None, None, None, "proj-x", ["tag1"])
+        assert "AND" in result
+        assert len(result["AND"]) == 2
+        # project_id is appended before tags in build_goal_filters
+        assert result["AND"][0] == {"project_id": {"eq": "proj-x"}}
+        assert result["AND"][1] == {"tags": {"contains": "tag1"}}
+
+
+# =====================================================================
+# 11. RECONSTRUCT_TREE TESTS
+# =====================================================================
+
+
+class TestReconstructTree:
+    """Test reconstruct_tree helper function."""
+
+    def test_empty_nodes_returns_empty_dict(self):
+        """Empty list returns empty dict."""
+        result = main.reconstruct_tree([], "root-123")
+        assert result == {}
+
+    def test_root_found_by_parent_id_none(self):
+        """Root node with parent_id=None matching root_id is selected."""
+        nodes = [
+            {"id": "root-1", "memory": "Root goal", "metadata": {
+                "root_id": "root-1", "parent_id": None,
+                "node_type": "goal", "status": "active", "tags": []}},
+            {"id": "child-1", "memory": "Child task", "metadata": {
+                "root_id": "root-1", "parent_id": "root-1",
+                "node_type": "task", "status": "active", "tags": []}},
+        ]
+        result = main.reconstruct_tree(nodes, "root-1")
+        assert result["id"] == "root-1"
+        assert len(result["children"]) == 1
+        assert result["children"][0]["id"] == "child-1"
+
+    def test_fallback_to_goal_type_when_no_parent_id_none(self):
+        """Fallback to first goal-type node when no parent_id=None."""
+        nodes = [
+            {"id": "node-1", "metadata": {
+                "root_id": "root-1", "parent_id": "some-parent",
+                "node_type": "goal", "status": "active", "tags": []}},
+            {"id": "node-2", "metadata": {
+                "root_id": "root-1", "parent_id": "node-1",
+                "node_type": "task", "status": "active", "tags": []}},
+        ]
+        result = main.reconstruct_tree(nodes, "root-1")
+        assert result["id"] == "node-1"
+
+    def test_fallback_to_first_node(self):
+        """Fallback to first node when no parent_id=None or goal type."""
+        nodes = [
+            {"id": "first", "metadata": {
+                "root_id": "root-1", "parent_id": "x",
+                "node_type": "task", "status": "active", "tags": []}},
+            {"id": "second", "metadata": {
+                "root_id": "root-1", "parent_id": "first",
+                "node_type": "subtask", "status": "active", "tags": []}},
+        ]
+        result = main.reconstruct_tree(nodes, "root-1")
+        assert result["id"] == "first"
+
+    def test_no_matching_root_id_returns_empty(self):
+        """No nodes with matching root_id returns empty dict."""
+        nodes = [
+            {"id": "other", "metadata": {
+                "root_id": "other-root", "parent_id": None,
+                "node_type": "goal", "status": "active", "tags": []}},
+        ]
+        result = main.reconstruct_tree(nodes, "nonexistent")
+        assert result == {}
+
+    def test_nested_children_attached_correctly(self):
+        """Deeply nested children are attached correctly."""
+        nodes = [
+            {"id": "r", "metadata": {
+                "root_id": "r", "parent_id": None,
+                "node_type": "goal", "status": "active", "tags": []}},
+            {"id": "c1", "metadata": {
+                "root_id": "r", "parent_id": "r",
+                "node_type": "task", "status": "active", "tags": []}},
+            {"id": "c2", "metadata": {
+                "root_id": "r", "parent_id": "c1",
+                "node_type": "subtask", "status": "active", "tags": []}},
+        ]
+        result = main.reconstruct_tree(nodes, "r")
+        assert result["id"] == "r"
+        assert len(result["children"]) == 1
+        assert result["children"][0]["id"] == "c1"
+        assert len(result["children"][0]["children"]) == 1
+        assert result["children"][0]["children"][0]["id"] == "c2"
+
+    def test_multiple_children_at_same_level(self):
+        """Multiple children at the same level are all attached."""
+        nodes = [
+            {"id": "r", "metadata": {
+                "root_id": "r", "parent_id": None,
+                "node_type": "goal", "status": "active", "tags": []}},
+            {"id": "c1", "metadata": {
+                "root_id": "r", "parent_id": "r",
+                "node_type": "task", "status": "active", "tags": []}},
+            {"id": "c2", "metadata": {
+                "root_id": "r", "parent_id": "r",
+                "node_type": "task", "status": "active", "tags": []}},
+        ]
+        result = main.reconstruct_tree(nodes, "r")
+        assert len(result["children"]) == 2
+        assert {c["id"] for c in result["children"]} == {"c1", "c2"}
+
+    def test_tree_node_format(self):
+        """Verify tree node has all expected fields."""
+        nodes = [
+            {"id": "r", "memory": "Root content", "metadata": {
+                "root_id": "r", "parent_id": None,
+                "node_type": "goal", "status": "active", "tags": ["tag1"],
+                "session_id": "sess-1", "project_id": "proj-1"}},
+        ]
+        result = main.reconstruct_tree(nodes, "r")
+        assert result["id"] == "r"
+        assert result["content"] == "Root content"
+        assert result["type"] == "goal"
+        assert result["status"] == "active"
+        assert result["tags"] == ["tag1"]
+        assert result["session_id"] == "sess-1"
+        assert result["project_id"] == "proj-1"
+        assert result["children"] == []
+
+
+# =====================================================================
+# 12. ADD_GOAL_NODE TESTS
+# =====================================================================
+
+
+class TestAddGoalNode:
+    """Test add_goal_node tool."""
+
+    def test_invalid_node_type_returns_error(self):
+        """Invalid node_type returns error."""
+        result = main.add_goal_node(
+            main.AddGoalNodeInput(content="test", node_type="invalid")
+        )
+        assert "error" in result.lower()
+        assert "node_type" in result.lower()
+
+    def test_parent_id_without_root_id_returns_error(self):
+        """parent_id without root_id returns error."""
+        result = main.add_goal_node(
+            main.AddGoalNodeInput(
+                content="test", node_type="task", parent_id="some-parent"
+            )
+        )
+        assert "error" in result.lower()
+        assert "root_id" in result.lower()
+
+    def test_valid_call_builds_correct_metadata(self):
+        """Verify memory_client.add is called with correct metadata."""
+        main.memory_client.add.reset_mock()
+        main.memory_client.add.side_effect = None
+        main.memory_client.add.return_value = {"results": [{"id": "new-id"}]}
+
+        result = main.add_goal_node(
+            main.AddGoalNodeInput(
+                content="Test goal",
+                node_type="goal",
+                session_id="session-1",
+                status="active",
+                tags=["important"],
+                project_id="my-project",
+            )
+        )
+
+        main.memory_client.add.assert_called_once()
+        call_args = main.memory_client.add.call_args
+
+        # Check positional arg (content)
+        assert call_args[0][0] == "Test goal"
+
+        # Check keyword args
+        assert call_args[1]["user_id"] == main.AGENT_ID
+        assert call_args[1]["infer"] is False
+
+        metadata = call_args[1]["metadata"]
+        assert metadata["node_type"] == "goal"
+        assert metadata["parent_id"] is None
+        assert metadata["root_id"] is not None  # Auto-generated
+        assert metadata["session_id"] == "session-1"
+        assert metadata["status"] == "active"
+        assert metadata["tags"] == ["important"]
+        assert metadata["project_id"] == "my-project"
+        assert "validated_at" in metadata
+
+        assert "goal node created" in result.lower()
+        assert "goal" in result.lower()
+
+    def test_valid_child_goal_uses_provided_root_id(self):
+        """Child node uses provided root_id."""
+        main.memory_client.add.reset_mock()
+        main.memory_client.add.side_effect = None
+        main.memory_client.add.return_value = {"results": [{"id": "child-id"}]}
+
+        result = main.add_goal_node(
+            main.AddGoalNodeInput(
+                content="Child task",
+                node_type="task",
+                parent_id="parent-uuid",
+                root_id="root-uuid",
+            )
+        )
+
+        call_args = main.memory_client.add.call_args
+        metadata = call_args[1]["metadata"]
+        assert metadata["parent_id"] == "parent-uuid"
+        assert metadata["root_id"] == "root-uuid"
+        assert "goal node created" in result.lower()
+
+    def test_root_goal_sets_root_id_to_node_id(self):
+        """Root goal sets root_id equal to its own generated ID."""
+        main.memory_client.add.reset_mock()
+        main.memory_client.add.return_value = {"results": [{"id": "new-id"}]}
+
+        main.add_goal_node(
+            main.AddGoalNodeInput(content="Root goal", node_type="goal")
+        )
+
+        call_args = main.memory_client.add.call_args
+        metadata = call_args[1]["metadata"]
+        # root_id should be auto-generated and not None
+        assert metadata["root_id"] is not None
+        # The root_id should equal the generated node_id
+        # Since we can't know the generated UUID, just verify it's a string
+        assert isinstance(metadata["root_id"], str)
+        assert len(metadata["root_id"]) > 0
+
+    def test_error_handling(self):
+        """Verify error is returned when add fails."""
+        main.memory_client.add.reset_mock()
+        main.memory_client.add.side_effect = Exception("Connection failed")
+
+        result = main.add_goal_node(
+            main.AddGoalNodeInput(content="Test", node_type="goal")
+        )
+
+        assert "error" in result.lower()
+        assert "connection failed" in result.lower()
+
+    def test_infer_defaults_to_false(self):
+        """Verify infer defaults to False for goal nodes (not True like memories)."""
+        main.memory_client.add.reset_mock()
+        main.memory_client.add.return_value = {"results": []}
+
+        main.add_goal_node(
+            main.AddGoalNodeInput(content="Test", node_type="goal")
+        )
+
+        call_args = main.memory_client.add.call_args
+        assert call_args[1]["infer"] is False
+
+
+# =====================================================================
+# 13. SEARCH_GOAL_NODES TESTS
+# =====================================================================
+
+
+class TestSearchGoalNodes:
+    """Test search_goal_nodes tool."""
+
+    def test_filter_building(self):
+        """Verify build_goal_filters is used correctly with user_id."""
+        main.memory_client.search.reset_mock()
+        main.memory_client.search.return_value = []
+
+        with patch.object(main, "build_goal_filters") as mock_build:
+            mock_build.return_value = {"node_type": {"eq": "task"}}
+
+            main.search_goal_nodes(
+                main.SearchGoalNodesInput(
+                    query="deploy",
+                    node_type="task",
+                    project_id="proj-x",
+                    tags=["api"],
+                )
+            )
+
+            mock_build.assert_called_once_with(
+                node_type="task",
+                root_id=None,
+                parent_id=None,
+                session_id=None,
+                status=None,
+                project_id="proj-x",
+                tags=["api"],
+            )
+
+    def test_user_id_passed_to_search(self):
+        """Verify user_id=AGENT_ID is passed to search."""
+        main.memory_client.search.reset_mock()
+        main.memory_client.search.return_value = []
+
+        main.search_goal_nodes(
+            main.SearchGoalNodesInput(query="test query")
+        )
+
+        call_args = main.memory_client.search.call_args
+        assert call_args[1]["user_id"] == main.AGENT_ID
+
+    def test_result_formatting(self):
+        """Verify results are formatted correctly."""
+        main.memory_client.search.reset_mock()
+        main.memory_client.search.side_effect = None
+        main.memory_client.search.return_value = [
+            {
+                "id": "goal-node-abc-def",
+                "score": 0.85,
+                "memory": "Deploy to staging environment",
+                "metadata": {
+                    "node_type": "goal",
+                    "status": "active",
+                    "parent_id": None,
+                    "root_id": "goal-node-abc-def",
+                    "project_id": "my-project",
+                    "tags": ["deploy"],
+                },
+            }
+        ]
+
+        result = main.search_goal_nodes(
+            main.SearchGoalNodesInput(query="deploy")
+        )
+
+        assert "Goal Node Search Results" in result
+        assert "goal-nod" in result  # Truncated ID (8 chars): "goal-nod" from "goal-node-abc-def"
+        assert "Score: 0.850" in result
+        assert "Deploy to staging" in result
+        assert "[GOAL]" in result
+        assert "none" in result  # parent is None so "none" displayed
+
+    def test_empty_results(self):
+        """Verify empty results message."""
+        main.memory_client.search.reset_mock()
+        main.memory_client.search.side_effect = None
+        main.memory_client.search.return_value = []
+
+        result = main.search_goal_nodes(
+            main.SearchGoalNodesInput(query="nonexistent")
+        )
+
+        assert result == "No matching goal nodes found."
+
+    def test_threshold_filtering(self):
+        """Verify threshold filters low-scoring results."""
+        main.memory_client.search.reset_mock()
+        main.memory_client.search.side_effect = None
+        main.memory_client.search.return_value = [
+            {"id": "a", "score": 0.95, "memory": "High score",
+             "metadata": {"node_type": "goal", "status": "active", "tags": []}},
+            {"id": "b", "score": 0.05, "memory": "Low score",
+             "metadata": {"node_type": "task", "status": "active", "tags": []}},
+        ]
+
+        result = main.search_goal_nodes(
+            main.SearchGoalNodesInput(query="test", threshold=0.5)
+        )
+
+        assert "High score" in result
+        assert "Low score" not in result
+
+    def test_error_handling(self):
+        """Verify error is returned when search fails."""
+        main.memory_client.search.reset_mock()
+        main.memory_client.search.side_effect = Exception("Search timeout")
+
+        result = main.search_goal_nodes(
+            main.SearchGoalNodesInput(query="test")
+        )
+
+        assert "error" in result.lower()
+        assert "timeout" in result.lower()
+
+
+# =====================================================================
+# 14. GET_GOAL_TREE TESTS
+# =====================================================================
+
+
+class TestGetGoalTree:
+    """Test get_goal_tree tool."""
+
+    def test_get_all_called_with_correct_filters(self):
+        """Verify get_all is called with correct filters."""
+        main.memory_client.get_all.reset_mock()
+        main.memory_client.get_all.return_value = [
+            {"id": "root-1", "memory": "Root",
+             "metadata": {"root_id": "root-1", "parent_id": None,
+                          "node_type": "goal", "status": "active", "tags": []}},
+        ]
+
+        main.get_goal_tree(main.GetGoalTreeInput(root_id="root-1"))
+
+        main.memory_client.get_all.assert_called_once()
+        call_args = main.memory_client.get_all.call_args[1]
+        assert call_args["filters"]["root_id"] == {"eq": "root-1"}
+        assert call_args["filters"]["node_type"] == {"in": ["goal", "task", "subtask"]}
+        assert call_args["user_id"] == main.AGENT_ID
+        assert call_args["limit"] == 1000
+
+    def test_fallback_to_search(self):
+        """Verify fallback to search when get_all fails."""
+        original_get_all = main.memory_client.get_all
+        original_search = main.memory_client.search
+
+        try:
+            delattr(main.memory_client, "get_all")
+            main.memory_client.search = MagicMock(return_value=[
+                {"id": "root-1", "memory": "Root",
+                 "metadata": {"root_id": "root-1", "parent_id": None,
+                              "node_type": "goal", "status": "active", "tags": []}},
+            ])
+
+            result = main.get_goal_tree(main.GetGoalTreeInput(root_id="root-1"))
+
+            main.memory_client.search.assert_called_once()
+            assert "Root" in result
+        finally:
+            main.memory_client.get_all = original_get_all
+            main.memory_client.search = original_search
+
+    def test_missing_root_returns_error_json(self):
+        """Missing root returns error JSON."""
+        main.memory_client.get_all.reset_mock()
+        main.memory_client.get_all.return_value = []
+
+        result = main.get_goal_tree(main.GetGoalTreeInput(root_id="nonexistent"))
+
+        assert '"error"' in result
+        assert "nonexistent" in result
+
+    def test_tree_reconstruction(self):
+        """Verify nested tree is reconstructed correctly."""
+        main.memory_client.get_all.reset_mock()
+        main.memory_client.get_all.return_value = [
+            {"id": "root-1", "memory": "Root goal",
+             "metadata": {"root_id": "root-1", "parent_id": None,
+                          "node_type": "goal", "status": "active", "tags": []}},
+            {"id": "child-1", "memory": "Child task",
+             "metadata": {"root_id": "root-1", "parent_id": "root-1",
+                          "node_type": "task", "status": "active", "tags": []}},
+        ]
+
+        result = main.get_goal_tree(main.GetGoalTreeInput(root_id="root-1"))
+
+        import json as _json
+        tree = _json.loads(result)
+        assert tree["id"] == "root-1"
+        assert tree["content"] == "Root goal"
+        assert tree["type"] == "goal"
+        assert len(tree["children"]) == 1
+        assert tree["children"][0]["id"] == "child-1"
+        assert tree["children"][0]["content"] == "Child task"
+
+    def test_error_handling(self):
+        """Verify error is returned when fetching fails."""
+        main.memory_client.get_all.reset_mock()
+        main.memory_client.get_all.side_effect = Exception("Qdrant timeout")
+
+        result = main.get_goal_tree(main.GetGoalTreeInput(root_id="root-1"))
+
+        assert "error" in result.lower()
+        assert "timeout" in result.lower()
+
+
+# =====================================================================
+# 15. UPDATE_GOAL_NODE TESTS
+# =====================================================================
+
+
+class TestUpdateGoalNode:
+    """Test update_goal_node tool."""
+
+    def test_invalid_status_returns_error(self):
+        """Invalid status returns error."""
+        result = main.update_goal_node(
+            main.UpdateGoalNodeInput(node_id="abc-123", status="invalid_status")
+        )
+        assert "error" in result.lower()
+        assert "invalid status" in result.lower()
+
+    def test_partial_metadata_update(self):
+        """Verify only provided fields are included in metadata update."""
+        main.memory_client.update.reset_mock()
+        main.memory_client.update.return_value = None
+
+        main.update_goal_node(
+            main.UpdateGoalNodeInput(node_id="abc-123", status="completed")
+        )
+
+        main.memory_client.update.assert_called_once()
+        call_args = main.memory_client.update.call_args
+
+        # First positional arg is node_id
+        assert call_args[0][0] == "abc-123"
+        # metadata should only contain status
+        assert call_args[1]["metadata"] == {"status": "completed"}
+
+    def test_update_with_content(self):
+        """Verify content is passed as data param."""
+        main.memory_client.update.reset_mock()
+        main.memory_client.update.return_value = None
+
+        main.update_goal_node(
+            main.UpdateGoalNodeInput(node_id="abc-123", content="Updated content")
+        )
+
+        call_args = main.memory_client.update.call_args
+        assert call_args[1]["data"] == "Updated content"
+
+    def test_multiple_fields_update(self):
+        """Verify multiple fields are updated correctly."""
+        main.memory_client.update.reset_mock()
+        main.memory_client.update.return_value = None
+
+        main.update_goal_node(
+            main.UpdateGoalNodeInput(
+                node_id="abc-123",
+                status="blocked",
+                tags=["urgent"],
+                project_id="new-project",
+            )
+        )
+
+        call_args = main.memory_client.update.call_args
+        metadata = call_args[1]["metadata"]
+        assert metadata == {
+            "status": "blocked",
+            "tags": ["urgent"],
+            "project_id": "new-project",
+        }
+
+    def test_update_without_content_passes_none(self):
+        """Verify data=None when content not provided."""
+        main.memory_client.update.reset_mock()
+        main.memory_client.update.return_value = None
+
+        main.update_goal_node(
+            main.UpdateGoalNodeInput(node_id="abc-123", status="completed")
+        )
+
+        call_args = main.memory_client.update.call_args
+        # data should be None when content not provided
+        assert call_args[1]["data"] is None
+
+    def test_error_handling(self):
+        """Verify error is returned when update fails."""
+        main.memory_client.update.reset_mock()
+        main.memory_client.update.side_effect = Exception("Update failed")
+
+        result = main.update_goal_node(
+            main.UpdateGoalNodeInput(node_id="abc-123", status="completed")
+        )
+
+        assert "error" in result.lower()
+        assert "update failed" in result.lower()
+
+
+# =====================================================================
+# 16. DELETE_GOAL_NODE TESTS
+# =====================================================================
+
+
+class TestDeleteGoalNode:
+    """Test delete_goal_node tool."""
+
+    def test_deletes_correct_node_id(self):
+        """Verify memory_client.delete is called with correct ID."""
+        main.memory_client.delete.reset_mock()
+        main.memory_client.delete.side_effect = None
+        main.memory_client.delete.return_value = None
+
+        result = main.delete_goal_node(
+            main.DeleteGoalNodeInput(node_id="goal-uuid-123")
+        )
+
+        main.memory_client.delete.assert_called_once_with("goal-uuid-123")
+        assert "successfully" in result.lower()
+        assert "goal-uuid-123" in result
+
+    def test_error_handling(self):
+        """Verify error is returned when delete fails."""
+        main.memory_client.delete.reset_mock()
+        main.memory_client.delete.side_effect = Exception("Goal node not found")
+
+        result = main.delete_goal_node(
+            main.DeleteGoalNodeInput(node_id="invalid-id")
+        )
+
+        assert "error" in result.lower()
+        assert "not found" in result.lower()
+
+
+# =====================================================================
 # 8. SERVER STARTUP TEST
 # =====================================================================
 
