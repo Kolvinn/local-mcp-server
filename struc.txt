@@ -1,95 +1,16 @@
 .
-|-- .agents
-|   `-- skills
-|       |-- agent-development
-|       |   |-- SKILL.md
-|       |   |-- examples
-|       |   |   |-- agent-creation-prompt.md
-|       |   |   `-- complete-agent-examples.md
-|       |   |-- references
-|       |   |   |-- agent-creation-system-prompt.md
-|       |   |   |-- system-prompt-design.md
-|       |   |   `-- triggering-examples.md
-|       |   `-- scripts
-|       |       `-- validate-agent.sh
-|       |-- agent-pseudocode
-|       |   `-- SKILL.md
-|       |-- architecture-patterns
-|       |   |-- SKILL.md
-|       |   `-- references
-|       |       `-- advanced-patterns.md
-|       |-- context7
-|       |   `-- SKILL.md
-|       |-- create-specification
-|       |   `-- SKILL.md
-|       |-- critical-thinking-logical-reasoning
-|       |   `-- SKILL.md
-|       |-- find-skills
-|       |   `-- SKILL.md
-|       |-- mem0
-|       |   |-- LICENSE
-|       |   |-- README.md
-|       |   |-- SKILL.md
-|       |   |-- client
-|       |   |   |-- differences.md
-|       |   |   |-- node.md
-|       |   |   `-- python.md
-|       |   |-- references
-|       |   |   |-- api-reference.md
-|       |   |   |-- architecture.md
-|       |   |   |-- features.md
-|       |   |   |-- integration-patterns.md
-|       |   |   |-- quickstart.md
-|       |   |   |-- sdk-guide.md
-|       |   |   `-- use-cases.md
-|       |   `-- scripts
-|       |       `-- mem0_doc_search.py
-|       |-- planning-with-files
-|       |   |-- SKILL.md
-|       |   |-- examples.md
-|       |   |-- reference.md
-|       |   |-- scripts
-|       |   |   |-- check-complete.ps1
-|       |   |   |-- check-complete.sh
-|       |   |   |-- init-session.ps1
-|       |   |   |-- init-session.sh
-|       |   |   `-- session-catchup.py
-|       |   `-- templates
-|       |       |-- findings.md
-|       |       |-- progress.md
-|       |       `-- task_plan.md
-|       |-- project-memory
-|       |   |-- README.md
-|       |   |-- SKILL.md
-|       |   `-- references
-|       |       |-- bugs_template.md
-|       |       |-- decisions_template.md
-|       |       |-- issues_template.md
-|       |       `-- key_facts_template.md
-|       |-- python-expert
-|       |   |-- AGENTS.md
-|       |   `-- SKILL.md
-|       `-- sequential-thinking
-|           |-- README.md
-|           |-- SKILL.md
-|           `-- references
-|               |-- advanced.md
-|               `-- examples.md
-|-- .gitignore
-|-- .opencode
-|   |-- .gitignore
-|   |-- memory
-|   |   |-- CONTEXT.md
-|   |   |-- DECISIONS.md
-|   |   |-- STACK.md
-|   |   `-- handoff.md
-|   |-- package-lock.json
-|   `-- package.json
-|-- .opencode_models.json
 |-- Dockerfile
+|-- Orchestrator-fix.md
 |-- README.md
 |-- docker-compose.yml
 |-- docs
+|   |-- context
+|   |   |-- constraints.md
+|   |   |-- conventions.md
+|   |   |-- services.md
+|   |   `-- stack.md
+|   |-- exploration
+|   |-- learnings
 |   |-- plans
 |   |   |-- agent-team
 |   |   |   |-- findings_agents.md
@@ -111,45 +32,37 @@
 |   |   |-- handoff.md
 |   |   |-- issues.md
 |   |   `-- key_facts.md
+|   |-- ratings
 |   `-- specs
-|       `-- .gitkeep
-|-- main.py
+|-- mcp-proxy-server.py
+|-- opencode-mem-backup
+|   |-- CONTEXT.md
+|   |-- DECISIONS.md
+|   |-- STACK.md
+|   `-- handoff.md
 |-- opencode.jsonc
 |-- prompts
-|   |-- agent-creator.md
-|   |-- agent_team.md
-|   |-- agentic_architect.md
-|   |-- coordinator.md
-|   |-- expert.md
 |   |-- explorer.md
 |   |-- implementer.md
-|   |-- product_owner.md
-|   `-- reviewer.md
+|   |-- orchestrator.md
+|   |-- reviewer.md
+|   `-- system_thinker.md
 |-- requirements.txt
 |-- scripts
 |   |-- agent_heartbeat.py
-|   `-- opencode-session-ping.py
+|   |-- mcp-test.sh
+|   |-- opencode-session-ping.py
+|   `-- test_mcp_proxy.py
 |-- skills-lock.json
 |-- src
-|   |-- .pytest_cache
-|   |   |-- .gitignore
-|   |   |-- CACHEDIR.TAG
-|   |   |-- README.md
-|   |   `-- v
-|   |       `-- cache
-|   |           `-- nodeids
 |   |-- README.md
 |   |-- __pycache__
-|   |   |-- main.cpython-313.pyc
-|   |   |-- main.cpython-314.pyc
-|   |   `-- test_main.cpython-314-pytest-9.0.3.pyc
 |   |-- config.json
+|   |-- goal_trees.py
 |   |-- main.py
 |   |-- pyproject.toml
 |   |-- test.txt
 |   `-- test_main.py
-|-- struc.txt
-|-- struc2.json
-`-- test.json
+`-- struc.txt
 
-42 directories, 111 files
+17 directories, 49 files

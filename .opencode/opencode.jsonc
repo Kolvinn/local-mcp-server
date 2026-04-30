@@ -1,6 +1,38 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "agent": {
+    "coordinator": {
+      "description": "Orchestrator — Sole user contact. Owns goals, workflow direction, delegation, and approval gates. Never designs, codes, explores, or reviews. Spawns System Thinker (design), Implementer (code), Reviewer (verify), Explorer (scout).",
+      "mode": "primary",
+      "model": "opencode-go/deepseek-v4-pro",
+      "prompt": "{file:./prompts/coordinator.md}",
+      "permission": {
+        "bash": {
+          "head *": "allow",
+          "wc *": "allow",
+          "cat *": "allow",   
+          "git status": "allow",
+          "git diff *": "allow",
+          "git log *": "allow",
+          "*": "ask"
+        },
+        "read": "ask",
+        "write": {
+          "docs/project_notes/*": "ask",
+          "docs/ratings/*": "ask",
+          "*": "ask"
+        },
+        "webfetch": "ask",
+        "websearch": "ask",
+        "task": {
+          "system_thinker": "ask",
+          "implementer": "ask",
+          "reviewer": "ask",
+          "explorer": "ask",
+          "*": "ask"
+        }
+      }
+    },
     "orchestrator": {
       "description": "Orchestrator — Sole user contact. Owns goals, workflow direction, delegation, and approval gates. Never designs, codes, explores, or reviews. Spawns System Thinker (design), Implementer (code), Reviewer (verify), Explorer (scout).",
       "mode": "primary",
@@ -16,19 +48,19 @@
           "git log *": "allow",
           "*": "ask"
         },
-        "read": "allow",
+        "read": "ask",
         "write": {
-          "docs/project_notes/*": "allow",
-          "docs/ratings/*": "allow",
+          "docs/project_notes/*": "ask",
+          "docs/ratings/*": "ask",
           "*": "ask"
         },
         "webfetch": "ask",
         "websearch": "ask",
         "task": {
-          "system_thinker": "allow",
-          "implementer": "allow",
-          "reviewer": "allow",
-          "explorer": "allow",
+          "system_thinker": "ask",
+          "implementer": "ask",
+          "reviewer": "ask",
+          "explorer": "ask",
           "*": "deny"
         }
       }
@@ -69,7 +101,7 @@
     "implementer": {
       "description": "Implementer — Code translator. Reads approved pseudocode specs, writes production code, runs tests. Translates, does not design.",
       "mode": "subagent",
-      "model": "opencode-go/kimi-k2.5",
+      "model": "opencode-go/deepseek-v4-flash",
       "prompt": "{file:./prompts/implementer.md}",
       "permission": {
         "bash": {
@@ -86,6 +118,7 @@
           "head *": "allow",
           "*": "ask"
         },
+        
         "webfetch": "deny",
         "websearch": "deny"
       }

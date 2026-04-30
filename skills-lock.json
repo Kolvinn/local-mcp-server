@@ -48,6 +48,12 @@
       "skillPath": "skills/multi-agent-orchestration/SKILL.md",
       "computedHash": "e5517caccf376ec61d8f94cd22f1bdd44a588a61214fcf8a67b75ba3d23a1864"
     },
+    "opencode-primitives": {
+      "source": "different-ai/openwork",
+      "sourceType": "github",
+      "skillPath": ".opencode/skills/opencode-primitives/SKILL.md",
+      "computedHash": "73c8d2f0bb3fc056d3797fb3a83671cc2278eda66424cc76447564f26bce594f"
+    },
     "planning-with-files": {
       "source": "othmanadi/planning-with-files",
       "sourceType": "github",

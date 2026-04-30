@@ -106,3 +106,7 @@ Work completed and planned, with ticket references where available. Keep it simp
 - Always include ticket URL for easy reference if applicable
 - Update status if work gets blocked or resumed
 - Clean out very old entries periodically (3+ months)
+### 2026-04-29 — Orchestrator File Access Protocol Violation
+- **Issue**: Orchestrator read 4 `docs/project_notes/` files (key_facts.md, decisions.md, handoff.md, issues.md) directly despite all exceeding WC_LIMIT (500w). Also ran WC_COMMAND on non-existent glob patterns without checking file existence first.
+- **Root Cause**: Orchestrator had correct word counts from WC_COMMAND results but proceeded to read anyway — procedural error, not ignorance.
+- **Mitigation**: Files re-delegated to Explorer for proper protocol-compliant reading. Re-confirm protocol awareness before each session.

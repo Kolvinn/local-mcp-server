@@ -5,6 +5,9 @@
 - Package manager: uv (via conda)
 - Base image: framework-base:latest (custom, not on Docker Hub)
 
+## Environment
+- the `.env` file in the app root directory contains the appropriate env vars that should either be injected into the framework, or readfrom
+
 ## Frameworks & Libraries
 - MCP Server: FastMCP (streamable-http transport)
 - Memory: mem0ai (in-process Python library)
@@ -17,7 +20,7 @@
 - Reverse proxy: Traefik (Docker labels for routing)
 - User: dev:1000:1000
 - Container mount: /home/dev/app
-- Serving port: 8000 (exposed as 8001 — misalignment to fix)
+
   
 ## External Services (user-managed, not in this repo)
 - Qdrant: vector store, port 6333
