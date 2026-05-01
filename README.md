@@ -2,4 +2,8 @@
 
 bunx @modelcontextprotocol/inspector
 
-pip install "mem0ai[nlp]" fastembed
+tree --gitignore 
+
+uv == python and venv packages
+
+conda = system packages
