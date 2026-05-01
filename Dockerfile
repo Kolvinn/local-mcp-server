@@ -20,7 +20,8 @@ WORKDIR /home/dev/app/
 RUN uv --version
 #RUN cd src && uv sync --system
 #THIS ASSUMES REQUIREMENTS.TXT HAS ALREADY BEEN GENERATED
-RUN cd src && conda run uv pip install pyproject.toml  --system
+RUN uv
+RUN cd src && conda run uv install pyproject.toml
 
 
 

@@ -73,7 +73,7 @@ def mount_proxies(mcp: FastMCP):
             "mcpServers": {
                 "memory": {
                     "command": "python",
-                    "args": ["./src/main.py"],
+                    "args": ["./memory_service.py"],
                     "env": {"PYTHONUNBUFFERED": "1"} # Ensures stdio persistence[cite: 1]
                 }
             }
