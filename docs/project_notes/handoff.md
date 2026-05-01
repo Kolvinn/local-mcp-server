@@ -1,3 +1,136 @@
+# Session 010 Handoff — Mem0 v3 API Fixes + Goal-Tree Integration Verification
+
+**Date**: 2026-04-30
+**Status**: In progress — code fixes applied, 2 issues remain
+
+---
+
+## What Was Accomplished
+
+1. **Diagnosed 3 bugs** in the MCP memory proxy after goal-tree migration (Phase 1-5 from prior session):
+   - Bug 1: Qdrant collection dim mismatch (1536 vs 768) — fixed by naming collections (`memories`, `goal_trees`)
+   - Bug 2: Mem0 v3 requires `user_id` in `filters` dict, not top-level kwarg for `search()`/`get_all()` — fixed in 5 locations
+   - Bug 3: `search()` parameter renamed `limit=` → `top_k=` in Mem0 v3 — fixed in 4 locations
+
+2. **Split memory_client into two instances** — `mem_client` (collection `memories`) and `goal_client` (collection `goal_trees`). Same Qdrant/Ollama config template, zero extra overhead. All 10 tool functions reference the correct client.
+
+3. **Updated filter helpers** — `build_search_filters()` and `build_goal_filters()` now accept `user_id` parameter and inject it into returned filters dict via AND logic.
+
+4. **Updated all 94+ tests** — mock assertions reversed: `user_id` now expected inside `filters` dict, `search()` asserts `top_k` not `limit`, dual mock setup (`mock_mem_client` + `mock_goal_client`).
+
+5. **Fixed integration test script** — `test_goal_tools_live.py` had 3 bugs:
+   - `argparse` import after usage (moved to top)
+   - Missing session ID handling (extracts `mcp-session-id` header from `initialize` response)
+   - Argument format mismatch (goal-tree tools need `{"input": {...}}` envelope for Pydantic models)
+
+6. **Created 5 implementation briefs** in `docs/briefs/mcp-mem0-fixes/` — concise, directive-only, no pseudocode. Designed for cheap-model implementers.
+
+---
+
+## Current Code State
+
+| File | Status |
+|------|--------|
+| `src/main.py` | ✅ Briefs 0-2 applied: dual clients, user_id in filters, limit→top_k |
+| `src/test_main.py` | ✅ Brief 3 applied: dual mocks, assertion reversals. 101/104 pass. 3 pre-existing PORT=8001 failures. |
+| `scripts/test_goal_tools_live.py` | ✅ Fixed: session ID + arg envelope. 3/8 pass, 5 fail with legitimate issues below. |
+| `mcp-proxy-server.py` | ✅ Unchanged from prior session (Brief 0-2 changes are internal to main.py subprocess) |
+| `.env` | ⚠️ `MCP_MEM0_PORT=8001` still set (causes 3 test failures). Harmless at runtime (main.py runs as stdio subprocess). |
+| Qdrant collections | ⚠️ User deleted all collections. `memories` and `goal_trees` need recreation with 768-dim via `embedding_model_dims: 768` in config. |
+
+---
+
+## Remaining Issues (2)
+
+### Issue 1: Qdrant collections need 768-dim recreation
+
+The `_build_mem0_config()` in `src/main.py` must include `"embedding_model_dims": 768` in `vector_store.config`. Without it, Mem0 defaults to 1536. After adding that line, the proxy restart will auto-create `memories` and `goal_trees` with correct dims on first write.
+
+**Location**: `src/main.py` — `_build_mem0_config()` function, in the `vector_store.config` dict.
+
+### Issue 2: Mem0 v3 filter validation — `user_id` placement
+
+Integration tests 2a/2b/2c fail with: `filters must contain at least one of: user_id, agent_id, run_id`
+
+Our code wraps `user_id` inside AND: `{"AND": [{"user_id": AGENT_ID}, ...]}`. Mem0 v3 may require `user_id` at the **top level** of the filters dict, not nested in AND. Needs investigation.
+
+If confirmed, fix is: always set `user_id` at top level of filters dict even when AND-wrapping other conditions. Pattern: `{"user_id": AGENT_ID, "AND": [other_conditions]}` instead of `{"AND": [{"user_id": AGENT_ID}, other_conditions]}`.
+
+**Location**: `build_search_filters()` and `build_goal_filters()` in `src/main.py`.
+
+---
+
+## Agent Delegation Conventions (Established This Session)
+
+### DO
+- **Point agents to files**, don't paste contents. Files are the contract.
+- **Use `conda run -n dev1`** for all Python/test commands. The `dev1` conda environment is where dependencies live.
+- **Tell agents which skills to load** — `python-expert` for Python code, `context7` for API docs. Don't assume they know.
+- **Delegate small+context-heavy fixes to the user** — they have full context. Tell them what to change and why.
+- **Use explorers for file summaries** — never read large files directly. "Context is getting too heavy" → spawn explorers.
+
+### DON'T
+- Don't paste file contents to implementers when they can read the file.
+- Don't run commands without `conda run -n dev1` prefix.
+- Don't write pseudocode in briefs. Briefs are directives, not tutorials.
+- Don't fix things the user can fix faster (env vars, one-liners, Docker commands).
+
+### Brief format
+Each implementer brief has 3 sections:
+1. **Context** — 1 line on what's broken and why
+2. **Changes** — bullet list of WHAT to modify, with file:line references. No pseudocode.
+3. **Verify** — what test/check confirms it's done
+
+---
+
+## Environment
+
+| Component | Value |
+|-----------|-------|
+| Conda env | `dev1` at `/home/dev/conda/envs/dev1` |
+| Python | 3.14 via conda |
+| Package manager | `uv pip install pyproject.toml --system` |
+| Proxy port | 8000 (streamable-http) |
+| Qdrant | `qdrant:6333` (Docker, internal-net) |
+| Ollama | `ollama:11434` (Docker, internal-net) |
+| Embedding model | `nomic-embed-text` (768-dim) |
+| LLM model | `llama3.1:8b` |
+| GPU | RTX 3080 (10GB VRAM) |
+
+---
+
+## Next Steps (In Order)
+
+1. **Fix Issue 1**: Add `"embedding_model_dims": 768` to `_build_mem0_config()` in `src/main.py`. Restart proxy. Collections will auto-create on first write.
+
+2. **Fix Issue 2**: Investigate whether Mem0 v3 requires `user_id` at top level of filters dict. If so, update both helpers to set `user_id` at top level alongside AND-wrapped conditions.
+
+3. **Re-run integration tests**: `conda run -n dev1 python scripts/test_goal_tools_live.py` — target: 8/8 pass.
+
+4. **Fix PORT=8001 test noise**: Change default in `src/main.py` line 30 from `"8001"` to `"8000"`. 101→104 unit tests pass.
+
+5. **Delete orphaned collections**: `mem0` and `mem0migrations` (1536-dim, no data).
+
+6. **Future**: LiteLLM setup for opencode deepseek flash LLM (mem0 doesn't natively support opencode provider).
+
+---
+
+## Files Modified This Session
+
+| File | Action |
+|------|--------|
+| `src/main.py` | Split into `mem_client` + `goal_client`, added `_build_mem0_config()`, injected `user_id` into helpers, fixed 11 search/get_all calls |
+| `src/test_main.py` | Dual mock setup, assertion reversals for user_id/top_k |
+| `scripts/test_goal_tools_live.py` | Fixed argparse import, session ID handling, argument envelope |
+| `docs/briefs/mcp-mem0-fixes/00_split_clients.md` | NEW |
+| `docs/briefs/mcp-mem0-fixes/01_fix_helpers.md` | NEW |
+| `docs/briefs/mcp-mem0-fixes/02_fix_tools.md` | NEW |
+| `docs/briefs/mcp-mem0-fixes/03_update_tests.md` | NEW |
+| `docs/briefs/mcp-mem0-fixes/04_verify.md` | NEW |
+| `docs/project_notes/handoff.md` | This entry |
+
+---
+
 # Session 009 Handoff — Agent Architecture Redesign
 
 **Date**: 2026-04-29

@@ -23,6 +23,7 @@ QDRANT_HOST = os.getenv("QDRANT_HOST", "qdrant")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
+EMBEDDING_DIMS = os.getenv("EMBEDDING_DIMS", "768")
 LLM_MODEL = os.getenv("LLM_MODEL", "llama3.1:8b")
 AGENT_ID = os.getenv("AGENT_ID", "default_agent")
 STALENESS_WINDOW_DAYS = int(os.getenv("STALENESS_WINDOW_DAYS", "30"))
@@ -47,6 +48,7 @@ goal_client = None
 
 def _build_mem0_config(collection_name: str) -> dict:
     """Build Mem0 config dict with the given collection name."""
+    ##
     return {
         "vector_store": {
             "provider": "qdrant",
@@ -54,6 +56,7 @@ def _build_mem0_config(collection_name: str) -> dict:
                 "host": QDRANT_HOST,
                 "port": QDRANT_PORT,
                 "collection_name": collection_name,
+                "embedding_model_dims":EMBEDDING_DIMS #via https://docs.mem0.ai/components/vectordbs/config#python
             }
         },
         "llm": {
@@ -67,7 +70,8 @@ def _build_mem0_config(collection_name: str) -> dict:
             "provider": "ollama",
             "config": {
                 "model": EMBEDDING_MODEL,
-                "ollama_base_url": OLLAMA_URL
+                "ollama_base_url": OLLAMA_URL,
+                "embedding_dims":EMBEDDING_DIMS # via https://docs.mem0.ai/components/embedders/config#python
             }
         }
     }
@@ -334,7 +338,7 @@ def reconstruct_tree(all_nodes: List[Dict], root_id: str) -> Dict:
 @mcp.tool()
 def add_memory(
     content: str,
-    tags: List[str] = None,
+    tags: Any = None,
     project_id: Optional[str] = None,
     source_user: Optional[str] = None,
     related_files: List[Dict[str, str]] = None,

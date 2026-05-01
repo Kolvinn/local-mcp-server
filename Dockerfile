@@ -5,7 +5,7 @@ COPY --chown=dev:dev ./dev/mcp-server/ /home/dev/app/
 USER dev
 
 #SHELL ["/bin/bash" , "-c"]
-RUN conda create -n dev1 python=3
+RUN conda create -n dev1
 
 #RUN conda activate dev1
 ENV VIRTUAL_ENV=/home/dev/conda/envs/dev1

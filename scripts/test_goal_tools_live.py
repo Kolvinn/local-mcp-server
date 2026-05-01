@@ -16,7 +16,7 @@ import uuid
 import sys
 import time
 from typing import Optional
-
+import argparse 
 import requests
 
 
@@ -27,6 +27,8 @@ class GoalTester:
         self, host: str = "http://localhost", port: int = 8000, verbose: bool = False
     ):
         self.host = host
+        self.session_id: Optional[str] = None
+        self._last_response: Optional[requests.Response] = None
         self.port = port
         self.verbose = verbose
         self.protocol_version = "2024-11-05"
@@ -44,7 +46,10 @@ class GoalTester:
     # ------------------------------------------------------------------
 
     def send_request(self, method: str, params: Optional[dict] = None) -> dict:
-        """Send an MCP JSON-RPC request to the server."""
+        """Send an MCP JSON-RPC request to the server.
+
+        Handles both JSON and SSE (streamable-http) response formats.
+        """
         payload = {
             "jsonrpc": "2.0",
             "id": str(uuid.uuid4()),
@@ -54,26 +59,62 @@ class GoalTester:
         if self.verbose:
             print(f"\n>>> {method}")
             print(json.dumps(payload, indent=2))
+
         response = requests.post(
             self.base_url, headers=self.headers, json=payload, timeout=30
         )
+        self._last_response = response
+        return self._parse_response(response)
+
+    @staticmethod
+    def _parse_response(response: requests.Response) -> dict:
+        """Parse an MCP response, handling both JSON and SSE formats."""
+        content_type = response.headers.get("content-type", "")
+        text = response.text
+
+        # Try direct JSON parse first (for error responses and plain JSON)
         try:
             return response.json()
         except json.JSONDecodeError:
-            return {"error": "Invalid JSON response", "raw": response.text}
+            pass
+
+        # Handle SSE format: event: message\ndata: {...}\n\n
+        if "text/event-stream" in content_type:
+            for line in text.split("\n"):
+                if line.startswith("data: "):
+                    try:
+                        return json.loads(line[6:])
+                    except json.JSONDecodeError:
+                        continue
+
+        return {"error": "Invalid response", "raw": text}
 
     def init(self) -> dict:
-        """Initialize MCP session."""
+        """Initialize MCP session and extract session ID."""
         params = {
             "protocolVersion": self.protocol_version,
             "capabilities": {},
             "clientInfo": {"name": "goal-tester", "version": "1.0.0"},
         }
-        return self.send_request("initialize", params)
+        response = self.send_request("initialize", params)
+
+        # Extract session ID for streamable-http MCP
+        if self._last_response is not None:
+            session_id = self._last_response.headers.get("mcp-session-id")
+            if not session_id:
+                meta = response.get("result", {}).get("_meta", {})
+                session_id = meta.get("session_id")
+            if session_id:
+                self.session_id = session_id
+                self.headers["mcp-session-id"] = session_id  # Add to headers for subsequent requests
+                if self.verbose:
+                    print(f"  Session ID: {session_id}")
+
+        return response
 
     def call_tool(self, name: str, arguments: dict) -> dict:
         """Call an MCP tool by name with arguments."""
-        params = {"name": name, "arguments": arguments}
+        params = {"name": name, "arguments": {"input": arguments}}
         return self.send_request("tools/call", params)
 
     def tool_result(self, response: dict) -> Optional[str]:
@@ -396,7 +437,6 @@ def main():
     )
     args = parser.parse_args()
 
-    import argparse  # noqa: F811 - re-import for inline use
 
     tester = GoalTester(host=args.host, port=args.port, verbose=args.verbose)
 

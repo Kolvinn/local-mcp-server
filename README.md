@@ -1,5 +1,5 @@
 # local-mcp-server
 
-npx @modelcontextprotocol/inspector
+bunx @modelcontextprotocol/inspector
 
 pip install "mem0ai[nlp]" fastembed
