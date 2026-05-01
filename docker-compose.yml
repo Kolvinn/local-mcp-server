@@ -9,9 +9,8 @@ services:
       - 8001
       #- 6274
      # - 6277
-    environment:
-      - HOST=0.0.0.0
-     # - ALLOWED_ORIGINS=https://mcp-server.local.net,https://mcp-server,http://127.0.0.1:6274,http://localhost:6274,http://127.0.0.1:8000,http://localhost:8000
+    env_file:
+      - ./.env
     user: "1000:1000"
     volumes:
       - mcp-server:/home/dev
