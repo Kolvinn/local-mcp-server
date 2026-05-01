@@ -21,7 +21,6 @@ WORKDIR /home/dev/app/
 #RUN cd src && uv sync --system
 
 #RUN cd src && conda run uv pip install pyproject.toml  --system
-=======
 
 RUN cd src && conda run uv sync
 
