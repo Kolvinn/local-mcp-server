@@ -11,7 +11,7 @@
 ## Research Findings
 
 ### Current Architecture
-- `mcp-proxy-server.py`: Orchestrator on port 8001 (hardcoded), proxies child MCP services
+- `mcp_proxy_server.py`: Orchestrator on port 8001 (hardcoded), proxies child MCP services
   - `sequential_thinking`: stdio via bunx
   - `goals`: stdio via `python ./src/goal_trees.py`
   - `memory`: HTTP (commented out)
@@ -59,7 +59,7 @@
 
 ### Port & Transport
 - `main.py` runs streamable HTTP on port 8000, endpoint path is `/mcp`
-- `mcp-proxy-server.py` hardcodes port 8001 — should read from env `MCP_PROXY_SERVER_PORT`
+- `mcp_proxy_server.py` hardcodes port 8001 — should read from env `MCP_PROXY_SERVER_PORT`
 - Constraint doc says target port is 8000, not 8001
 - Proxy config for HTTP service: `{"url": "http://localhost:8000/mcp", "transport": "streamable-http"}`
 
@@ -95,7 +95,7 @@
 - Mem0 API filter reference: `.agents/skills/mem0/references/api-reference.md` (lines 57-105)
 - Current main.py: `src/main.py` (395 lines) — patterns to follow
 - Current test file: `src/test_main.py` (714 lines) — mock patterns to follow
-- Proxy server: `mcp-proxy-server.py` (127 lines)
+- Proxy server: `mcp_proxy_server.py` (127 lines)
 - Project constraints: `docs/context/constraints.md`
 - Project stack: `docs/context/stack.md`
 - Project conventions: `docs/context/conventions.md`

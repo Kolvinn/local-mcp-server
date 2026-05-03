@@ -17,7 +17,7 @@ Specification for integrating goal-tree operations (`goal_trees.py`) into the Me
 - 5 new tools in `src/main.py`: `add_goal_node`, `search_goal_nodes`, `get_goal_tree`, `update_goal_node`, `delete_goal_node`
 - Metadata schema for goal/task/subtask nodes
 - Helper functions for goal-specific filter construction and tree reconstruction
-- Proxy config update in `mcp-proxy-server.py`
+- Proxy config update in `mcp_proxy_server.py`
 - RBAC permission entries for new tools
 - `.env` cleanup
 
@@ -631,7 +631,7 @@ Result: parent_id and root_id point to existing nodes, node_type is "task"
 - **VAL-002**: All `from fastmcp import FastMCP` imports are consistent
 - **VAL-003**: No `qdrant_client` or `ollama` imports in `main.py`
 - **VAL-004**: `memory_client` is the sole interface to Qdrant/Ollama for all tools
-- **VAL-005**: `mcp-proxy-server.py` reads port from env var, not hardcoded 8001
+- **VAL-005**: `mcp_proxy_server.py` reads port from env var, not hardcoded 8001
 - **VAL-006**: `.env` has no shell variable interpolation
 - **VAL-007**: `pytest src/test_main.py` passes with zero failures
 - **VAL-008**: All 10 tools appear in proxy tool listing

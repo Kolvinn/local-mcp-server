@@ -21,7 +21,7 @@ Phase 1
 - **Status:** pending
 
 ### Phase 2: Update proxy config & RBAC permissions
-- [ ] Remove `goals` stdio proxy block from `proxy_config` in `mcp-proxy-server.py`
+- [ ] Remove `goals` stdio proxy block from `proxy_config` in `mcp_proxy_server.py`
 - [ ] Uncomment/activate `memory` proxy block (HTTP -> main.py on port 8000)
 - [ ] Verify transport config: `streamable-http` to `http://localhost:8000/mcp`
 - [ ] Add goal-tree tool names to `PERMISSION_TO_TOOLS` under `memory_read` and `memory_write`
@@ -65,7 +65,7 @@ Phase 1
 | Agent handles cascade delete | Keeps tool simple; goal-keeper agent has full context to decide cascade policy |
 | Goal tools use `memory__` namespace in proxy | All tools live in `main.py` -> same proxy server key `"memory"` |
 | No new dependencies | Mem0 is already in `pyproject.toml`; handles Qdrant and Ollama internally |
-| `FastMCP` from `fastmcp` package | Consistent with `mcp-proxy-server.py` and `pyproject.toml` (`fastmcp>=3.2.4`) |
+| `FastMCP` from `fastmcp` package | Consistent with `mcp_proxy_server.py` and `pyproject.toml` (`fastmcp>=3.2.4`) |
 | Agent IDs not hardcoded | `AGENT_ID` persists from `main.py` into Mem0 calls; per constraint doc |
 
 ## Notes

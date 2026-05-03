@@ -18,7 +18,7 @@
 | File | Action |
 |------|--------|
 | `src/main.py` | Modified — 5 tools, 2 helpers, 5 Pydantic models added |
-| `mcp-proxy-server.py` | Modified — proxy config, RBAC, port fix |
+| `mcp_proxy_server.py` | Modified — proxy config, RBAC, port fix |
 | `.env` | Modified — 4 variables fixed |
 | `src/goal_trees.py` | Deleted |
 | `src/test_main.py` | Modified — 52 new unit tests |
@@ -29,7 +29,7 @@
 | Backup File | Content |
 |-------------|---------|
 | `src/main.py.phase1_bak` | Phase 1 implementation (784 lines) |
-| `mcp-proxy-server.py.phase2_bak` | Phase 2 implementation |
+| `mcp_proxy_server.py.phase2_bak` | Phase 2 implementation |
 
 ## Test Results
 

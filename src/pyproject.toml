@@ -10,9 +10,19 @@ dependencies = [
     "httpx>=0.28.1",
     "python-dotenv>=1.2.2",
     "uvicorn>=0.44.0",
-    "mem0ai",
     "pyyaml>=6.0.2",
     "pytest>=8.3.4",
     "pytest-asyncio>=0.25.3",
     "pydantic>=2.10.6",
+    "mem0ai>=2.0.1",
+    "ollama>=0.6.2",
+    "zep-python>=2.0.2",
+    "instructor>=1.15.1",
+    "openai>=2.33.0",
+    "qdrant-client>=1.17.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
 ]

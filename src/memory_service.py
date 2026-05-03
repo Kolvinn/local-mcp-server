@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 from mem0 import Memory
+
 # Load environment variables
 load_dotenv()
 
@@ -56,24 +57,21 @@ def _build_mem0_config(collection_name: str) -> dict:
                 "host": QDRANT_HOST,
                 "port": QDRANT_PORT,
                 "collection_name": collection_name,
-                "embedding_model_dims":EMBEDDING_DIMS #via https://docs.mem0.ai/components/vectordbs/config#python
-            }
+                "embedding_model_dims": EMBEDDING_DIMS,  # via https://docs.mem0.ai/components/vectordbs/config#python
+            },
         },
         "llm": {
             "provider": "ollama",
-            "config": {
-                "model": LLM_MODEL,
-                "ollama_base_url": OLLAMA_URL
-            }
+            "config": {"model": LLM_MODEL, "ollama_base_url": OLLAMA_URL},
         },
         "embedder": {
             "provider": "ollama",
             "config": {
                 "model": EMBEDDING_MODEL,
                 "ollama_base_url": OLLAMA_URL,
-                "embedding_dims":EMBEDDING_DIMS # via https://docs.mem0.ai/components/embedders/config#python
-            }
-        }
+                "embedding_dims": EMBEDDING_DIMS,  # via https://docs.mem0.ai/components/embedders/config#python
+            },
+        },
     }
 
 
@@ -108,20 +106,30 @@ init_memory_clients()
 
 class AddMemoryInput(BaseModel):
     content: str = Field(..., description="The memory content to store")
-    tags: List[str] = Field(default_factory=list, description="Vocabulary tags for filtering")
+    tags: Optional[List[str]] = Field(None, description="Vocabulary tags for filtering")
     project_id: Optional[str] = Field(None, description="Project identifier")
     source_user: Optional[str] = Field(None, description="Who this memory is about")
-    related_files: List[Dict[str, str]] = Field(default_factory=list, description="Files associated with this memory (list of {path, entered})")
-    source_path: Optional[str] = Field(None, description="Directory context at creation")
+    related_files: Optional[List[Dict[str, str]]] = Field(
+        None, description="Files associated with this memory (list of {path, entered})"
+    )
+    source_path: Optional[str] = Field(
+        None, description="Directory context at creation"
+    )
 
 
 class SearchMemoryInput(BaseModel):
     query: str = Field(..., description="Natural language search query")
-    tags: List[str] = Field(default_factory=list, description="Filter by tags (OR logic within list)")
+    tags: List[str] = Field(
+        default_factory=list, description="Filter by tags (OR logic within list)"
+    )
     project_id: Optional[str] = Field(None, description="Filter by project")
-    source_user: Optional[str] = Field(None, description="Filter by who the memory is about")
+    source_user: Optional[str] = Field(
+        None, description="Filter by who the memory is about"
+    )
     top_k: int = Field(10, ge=1, le=100, description="Number of results")
-    threshold: float = Field(0.1, ge=0.0, le=1.0, description="Minimum similarity score")
+    threshold: float = Field(
+        0.1, ge=0.0, le=1.0, description="Minimum similarity score"
+    )
 
 
 class DeleteMemoryInput(BaseModel):
@@ -129,23 +137,35 @@ class DeleteMemoryInput(BaseModel):
 
 
 class SyncMetadataInput(BaseModel):
-    file_path: str = Field(..., description="Absolute path to create/update .memory-context.yaml")
+    file_path: str = Field(
+        ..., description="Absolute path to create/update .memory-context.yaml"
+    )
     project_id: str = Field(..., description="Project identifier to write")
-    tags: List[str] = Field(default_factory=list, description="Default tags for this project")
-    scope_summary: Optional[str] = Field(None, description="Human-readable project summary")
+    tags: List[str] = Field(
+        default_factory=list, description="Default tags for this project"
+    )
+    scope_summary: Optional[str] = Field(
+        None, description="Human-readable project summary"
+    )
 
 
 class ListProjectsInput(BaseModel):
-    limit: int = Field(100, ge=1, le=1000, description="Maximum number of projects to return")
+    limit: int = Field(
+        100, ge=1, le=1000, description="Maximum number of projects to return"
+    )
 
 
 class AddGoalNodeInput(BaseModel):
     content: str = Field(..., description="Description of the goal/task/subtask")
     node_type: str = Field(..., description="One of: goal, task, subtask")
     parent_id: Optional[str] = Field(None, description="UUID of parent node")
-    root_id: Optional[str] = Field(None, description="UUID of root goal (required if parent_id set)")
+    root_id: Optional[str] = Field(
+        None, description="UUID of root goal (required if parent_id set)"
+    )
     session_id: Optional[str] = Field(None, description="Session grouping key")
-    status: str = Field("active", description="active, completed, blocked, or abandoned")
+    status: str = Field(
+        "active", description="active, completed, blocked, or abandoned"
+    )
     tags: List[str] = Field(default_factory=list)
     project_id: Optional[str] = Field(None)
     infer: bool = Field(False, description="Whether to run LLM extraction on content")
@@ -153,7 +173,9 @@ class AddGoalNodeInput(BaseModel):
 
 class SearchGoalNodesInput(BaseModel):
     query: str = Field(..., description="Natural language search query")
-    node_type: Optional[str] = Field(None, description="Filter by goal, task, or subtask")
+    node_type: Optional[str] = Field(
+        None, description="Filter by goal, task, or subtask"
+    )
     root_id: Optional[str] = Field(None)
     parent_id: Optional[str] = Field(None)
     session_id: Optional[str] = Field(None)
@@ -338,12 +360,12 @@ def reconstruct_tree(all_nodes: List[Dict], root_id: str) -> Dict:
 @mcp.tool()
 def add_memory(
     content: str,
-    tags: Any = None,
+    tags: Optional[List[str]] = None,  # Added Optional
     project_id: Optional[str] = None,
     source_user: Optional[str] = None,
-    related_files: List[Dict[str, str]] = None,
+    related_files: Optional[List[Dict[str, str]]] = None,  # Added Optional
     source_path: Optional[str] = None,
-    infer: bool = True
+    infer: bool = True,
 ) -> str:
     """Store a new memory with metadata.
 
@@ -368,10 +390,7 @@ def add_memory(
         }
 
         result = mem_client.add(
-            content,
-            user_id=AGENT_ID,
-            metadata=metadata,
-            infer=infer
+            content, user_id=AGENT_ID, metadata=metadata, infer=infer
         )
 
         # Count created/updated entries
@@ -389,7 +408,7 @@ def search_memory(
     project_id: Optional[str] = None,
     source_user: Optional[str] = None,
     top_k: int = 10,
-    threshold: float = 0.1
+    threshold: float = 0.1,
 ) -> str:
     """Search memories using natural language query.
 
@@ -403,7 +422,9 @@ def search_memory(
     """
     try:
         # Build filters
-        filters = build_search_filters(tags or [], project_id, source_user, user_id=AGENT_ID)
+        filters = build_search_filters(
+            tags or [], project_id, source_user, user_id=AGENT_ID
+        )
 
         # Search memories
         results = mem_client.search(
@@ -411,7 +432,9 @@ def search_memory(
             filters=filters,
             top_k=top_k,
         )
-
+        results = (
+            results.get("results", results) if isinstance(results, dict) else results
+        )
         # Filter by threshold manually if needed (Mem0 may not support threshold directly)
         if threshold > 0:
             results = [r for r in results if r.get("score", 0) >= threshold]
@@ -461,7 +484,7 @@ def sync_metadata(
     file_path: str,
     project_id: str,
     tags: List[str] = None,
-    scope_summary: Optional[str] = None
+    scope_summary: Optional[str] = None,
 ) -> str:
     """Create or update a .memory-context.yaml file.
 
@@ -504,7 +527,7 @@ def sync_metadata(
                 f,
                 sort_keys=False,
                 default_flow_style=False,
-                allow_unicode=True
+                allow_unicode=True,
             )
 
         return f"Metadata synchronized to {resolved}"
@@ -524,7 +547,9 @@ def list_projects(limit: int = 100) -> str:
         # Get all memories for this user
         # Note: Mem0's get_all method may vary; using search with broad query as fallback
         try:
-            all_memories = mem_client.get_all(filters={"user_id": AGENT_ID}, limit=limit)
+            all_memories = mem_client.get_all(
+                filters={"user_id": AGENT_ID}, limit=limit
+            )
         except AttributeError:
             # Fallback: use search with empty/broad query
             all_memories = mem_client.search(
@@ -532,7 +557,11 @@ def list_projects(limit: int = 100) -> str:
                 filters={"user_id": AGENT_ID},
                 top_k=limit,
             )
-
+        all_memories = (
+            all_memories.get("results", all_memories)
+            if isinstance(all_memories, dict)
+            else all_memories
+        )
         # Extract unique project_ids from metadata
         project_ids = set()
         for memory in all_memories:
@@ -582,6 +611,7 @@ def add_goal_node(input: AddGoalNodeInput) -> str:
 
     # Build metadata dict with all fields (None values are explicit, not omitted)
     metadata: Dict[str, Any] = {
+        "node_id": node_id,
         "node_type": input.node_type,
         "parent_id": input.parent_id,
         "root_id": root_id,
@@ -637,7 +667,9 @@ def search_goal_nodes(input: SearchGoalNodesInput) -> str:
             filters=filters,
             top_k=input.top_k,
         )
-
+        results = (
+            results.get("results", results) if isinstance(results, dict) else results
+        )
         # Filter by threshold manually if needed
         if input.threshold > 0:
             results = [r for r in results if r.get("score", 0) >= input.threshold]
@@ -689,12 +721,11 @@ def get_goal_tree(input: GetGoalTreeInput) -> str:
     """
     try:
         # Build filters to fetch all nodes belonging to this tree
+        # Note: Mem0 v2 rejects AND-wrapped operator filters; use flat dict
         filters: Dict[str, Any] = {
-            "AND": [
-                {"user_id": AGENT_ID},
-                {"root_id": {"eq": input.root_id},
-                 "node_type": {"in": ["goal", "task", "subtask"]}},
-            ],
+            "user_id": AGENT_ID,
+            "root_id": {"eq": input.root_id},
+            "node_type": {"in": ["goal", "task", "subtask"]},
         }
 
         # Attempt get_all first; fall back to search with broad query
@@ -709,6 +740,13 @@ def get_goal_tree(input: GetGoalTreeInput) -> str:
                 filters=filters,
                 top_k=1000,
             )
+
+        # Unwrap results dict to list (Mem0 v2 returns {"results": [...]})
+        all_nodes = (
+            all_nodes.get("results", all_nodes)
+            if isinstance(all_nodes, dict)
+            else all_nodes
+        )
 
         if not all_nodes:
             return json.dumps(
@@ -743,8 +781,7 @@ def update_goal_node(input: UpdateGoalNodeInput) -> str:
     valid_statuses = {"active", "completed", "blocked", "abandoned"}
     if input.status is not None and input.status not in valid_statuses:
         return (
-            "Error: Invalid status. Must be active, completed, "
-            "blocked, or abandoned."
+            "Error: Invalid status. Must be active, completed, blocked, or abandoned."
         )
 
     # Build metadata update with only provided fields
@@ -759,11 +796,25 @@ def update_goal_node(input: UpdateGoalNodeInput) -> str:
         metadata_update["project_id"] = input.project_id
 
     try:
-        goal_client.update(
-            input.node_id,
-            data=input.content,
-            metadata=metadata_update,
+        # Look up Mem0's internal ID from app-level node_id
+        search_results = goal_client.get_all(
+            filters={"user_id": AGENT_ID, "node_id": input.node_id},
+            limit=1,
         )
+        results_list = (
+            search_results.get("results", [])
+            if isinstance(search_results, dict)
+            else search_results
+        )
+        if not results_list:
+            return f"Error: Goal node {input.node_id} not found."
+
+        memory_id = results_list[0]["id"]
+
+        if input.content:
+            goal_client.update(memory_id, data=input.content, metadata=metadata_update)
+        else:
+            goal_client.update(memory_id, metadata=metadata_update)
         return f"Goal node {input.node_id} updated successfully."
 
     except Exception as e:
@@ -780,7 +831,22 @@ def delete_goal_node(input: DeleteGoalNodeInput) -> str:
         input: DeleteGoalNodeInput with the node_id to delete.
     """
     try:
-        goal_client.delete(input.node_id)
+        # Look up Mem0's internal ID from app-level node_id
+        search_results = goal_client.search(
+            query="",
+            filters={"user_id": AGENT_ID, "node_id": {"eq": input.node_id}},
+            top_k=1,
+        )
+        results_list = (
+            search_results.get("results", search_results)
+            if isinstance(search_results, dict)
+            else search_results
+        )
+        if not results_list:
+            return f"Error: Goal node {input.node_id} not found."
+
+        memory_id = results_list[0]["id"]
+        goal_client.delete(memory_id)
         return f"Goal node {input.node_id} deleted successfully."
 
     except Exception as e:

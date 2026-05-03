@@ -2,13 +2,13 @@
 
 ## Purpose
 
-Test the end-to-end MCP proxy pipeline: ingest (`add_memory`), search (`search_memory`), and remove (`delete_memory`) via the proxy at `mcp-proxy-server.py`.
+Test the end-to-end MCP proxy pipeline: ingest (`add_memory`), search (`search_memory`), and remove (`delete_memory`) via the proxy at `mcp_proxy_server.py`.
 
 ## Architecture
 
 ```
 opencode (client)
-  └─> mcp-proxy-server.py  (FastMCP, port 8000)
+  └─> mcp_proxy_server.py  (FastMCP, port 8000)
         ├── gatekeeper tools:  get_allowed_services(), verify_access()     [WORKING]
         ├── proxy: sequential-thinking  (bunx)                           [WORKING]
         └── proxy: memory  (python ./src/main.py)

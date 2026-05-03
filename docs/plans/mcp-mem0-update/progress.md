@@ -7,7 +7,7 @@
 - **Status:** in_progress
 - **Started:** 2026-04-30
 - Actions taken:
-  - Read all source files: mcp-proxy-server.py, src/main.py, src/goal_trees.py
+  - Read all source files: mcp_proxy_server.py, src/main.py, src/goal_trees.py
   - Read all context files: constraints.md, stack.md, services.md, conventions.md
   - Read .env file (identified 4 issues)
   - Loaded mem0 skill and read Python OSS client reference, API filter reference
@@ -35,7 +35,7 @@
 |------|--------|--------|
 | `src/main.py` | ADD 5 tools + 2 helpers | ~200-300 lines |
 | `src/goal_trees.py` | DELETE | -186 lines |
-| `mcp-proxy-server.py` | MODIFY proxy_config, RBAC, port | ~15 lines changed |
+| `mcp_proxy_server.py` | MODIFY proxy_config, RBAC, port | ~15 lines changed |
 | `.env` | FIX 4 variables | 4 lines changed |
 | `src/test_main.py` | ADD 5 test classes | ~200 lines |
 | `src/pyproject.toml` | NO CHANGE | 0 |

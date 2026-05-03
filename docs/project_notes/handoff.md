@@ -34,7 +34,7 @@
 | `src/main.py` | ✅ Briefs 0-2 applied: dual clients, user_id in filters, limit→top_k |
 | `src/test_main.py` | ✅ Brief 3 applied: dual mocks, assertion reversals. 101/104 pass. 3 pre-existing PORT=8001 failures. |
 | `scripts/test_goal_tools_live.py` | ✅ Fixed: session ID + arg envelope. 3/8 pass, 5 fail with legitimate issues below. |
-| `mcp-proxy-server.py` | ✅ Unchanged from prior session (Brief 0-2 changes are internal to main.py subprocess) |
+| `mcp_proxy_server.py` | ✅ Unchanged from prior session (Brief 0-2 changes are internal to main.py subprocess) |
 | `.env` | ⚠️ `MCP_MEM0_PORT=8001` still set (causes 3 test failures). Harmless at runtime (main.py runs as stdio subprocess). |
 | Qdrant collections | ⚠️ User deleted all collections. `memories` and `goal_trees` need recreation with 768-dim via `embedding_model_dims: 768` in config. |
 

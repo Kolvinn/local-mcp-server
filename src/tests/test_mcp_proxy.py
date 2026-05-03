@@ -3,7 +3,7 @@
 MCP Proxy Server Test Suite
 
 Translates the mcp-test.sh bash test suite into Python for easier testing and debugging.
-Tests the MCP proxy server (mcp-proxy-server.py) using the MCP protocol.
+Tests the MCP proxy server (mcp_proxy_server.py) using the MCP protocol.
 """
 
 import json
@@ -121,18 +121,23 @@ Examples:
         "-s", "--session", type=str, help="Append a session ID to the URL"
     )
     parser.add_argument(
-        "-p", "--port", type=int, default=8001, help="Override default port (default: 8001)"
+        "-p",
+        "--port",
+        type=int,
+        default=8001,
+        help="Override default port (default: 8001)",
     )
     parser.add_argument(
-        "--host", type=str, default="http://localhost", help="Host URL (default: http://localhost)"
+        "--host",
+        type=str,
+        default="http://localhost",
+        help="Host URL (default: http://localhost)",
     )
 
-    subparsers = parser.add_subparsers(
-        dest="command", help="Available commands")
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     subparsers.add_parser("init", help="Send the 'initialize' handshake")
-    subparsers.add_parser(
-        "ping", help="Send a 'ping' to check server liveliness")
+    subparsers.add_parser("ping", help="Send a 'ping' to check server liveliness")
     subparsers.add_parser("tools", help="List available tools")
     subparsers.add_parser("resources", help="List available resources")
     subparsers.add_parser("prompts", help="List available prompts")
@@ -157,7 +162,7 @@ Examples:
     )
 
     result = None
-    args.command = 'init'
+    args.command = "init"
     if args.command == "init":
         result = tester.init()
     elif args.command == "ping":

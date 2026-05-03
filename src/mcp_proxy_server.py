@@ -14,19 +14,17 @@ PORT = int(os.environ.get("MCP_PROXY_SERVER_PORT", 8000))
 AGENT_PERMISSIONS = {
     "agent_alpha": ["sequential_thinking", "memory_read"],
     "agent_admin": ["sequential_thinking", "memory_read", "memory_write"],
-    "guest": []
+    "guest": [],
 }
 
 # Map granular permissions to the actual underlying tool names
 PERMISSION_TO_TOOLS = {
-    "sequential_thinking": [
-        "sequential_thinking__sequential_thinking"
-    ],
+    "sequential_thinking": ["sequential_thinking__sequential_thinking"],
     "memory_read": [
         "memory__search_memory",
         "memory__list_projects",
         "memory__search_goal_nodes",
-        "memory__get_goal_tree"
+        "memory__get_goal_tree",
     ],
     "memory_write": [
         "memory__add_memory",
@@ -34,19 +32,20 @@ PERMISSION_TO_TOOLS = {
         "memory__sync_metadata",
         "memory__add_goal_node",
         "memory__update_goal_node",
-        "memory__delete_goal_node"
+        "memory__delete_goal_node",
     ],
     "memory_admin": [
         "memory__search_goal_nodes",
         "memory__get_goal_tree",
         "memory__add_goal_node",
         "memory__update_goal_node",
-        "memory__delete_goal_node"
-    ]
+        "memory__delete_goal_node",
+    ],
 }
 
 
 mcp = FastMCP("CompositeOrchestrator")
+
 
 def mount_proxies(mcp: FastMCP):
     # =====================================================================
@@ -55,36 +54,49 @@ def mount_proxies(mcp: FastMCP):
 
     # 1. Mount Sequential Thinking
     try:
-        seq_proxy = create_proxy({
-            "mcpServers": {
-                "sequential_thinking": {
-                    "command": "bunx",
-                    "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+        seq_proxy = create_proxy(
+            {
+                "mcpServers": {
+                    "sequential_thinking": {
+                        "command": "bunx",
+                        "args": [
+                            "-y",
+                            "@modelcontextprotocol/server-sequential-thinking",
+                        ],
+                    }
                 }
             }
-        })
-        mcp.mount(seq_proxy, namespace="") # Namespace is empty to use the dict key prefix[cite: 1]
+        )
+        mcp.mount(
+            seq_proxy, namespace=""
+        )  # Namespace is empty to use the dict key prefix[cite: 1]
     except Exception as e:
         print(f"Failed to mount Sequential Thinking: {e}")
 
     # 2. Mount Memory Server (with persistence fix)
     try:
-        mem_proxy = create_proxy({
-            "mcpServers": {
-                "memory": {
-                    "command": "python",
-                    "args": ["./memory_service.py"],
-                    "env": {"PYTHONUNBUFFERED": "1"} # Ensures stdio persistence[cite: 1]
+        mem_proxy = create_proxy(
+            {
+                "mcpServers": {
+                    "memory": {
+                        "command": "python",
+                        "args": ["/home/dev/app/src/memory_service.py"],
+                        "env": {
+                            "PYTHONUNBUFFERED": "1"
+                        },  # Ensures stdio persistence[cite: 1]
+                    }
                 }
             }
-        })
-        mcp.mount(mem_proxy, namespace="") 
+        )
+        mcp.mount(mem_proxy, namespace="")
     except Exception as e:
         print(f"Failed to mount Memory Server: {e}")
+
 
 # =====================================================================
 # 4. DISCOVERY & GATEKEEPING TOOLS
 # =====================================================================
+
 
 @mcp.tool()
 def get_allowed_services(agent_id: str) -> str:
@@ -103,12 +115,14 @@ def get_allowed_services(agent_id: str) -> str:
     for role in roles:
         allowed_tools.extend(PERMISSION_TO_TOOLS.get(role, []))
 
-    return json.dumps({
-        "agent_id": agent_id,
-        "roles": roles,
-        "allowed_tools": allowed_tools,
-        "instruction": "Only attempt to call the tools listed in 'allowed_tools'."
-    })
+    return json.dumps(
+        {
+            "agent_id": agent_id,
+            "roles": roles,
+            "allowed_tools": allowed_tools,
+            "instruction": "Only attempt to call the tools listed in 'allowed_tools'.",
+        }
+    )
 
 
 @mcp.tool()

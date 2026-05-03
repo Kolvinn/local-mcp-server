@@ -16,7 +16,7 @@ import uuid
 import sys
 import time
 from typing import Optional
-import argparse 
+import argparse
 import requests
 
 
@@ -106,7 +106,9 @@ class GoalTester:
                 session_id = meta.get("session_id")
             if session_id:
                 self.session_id = session_id
-                self.headers["mcp-session-id"] = session_id  # Add to headers for subsequent requests
+                self.headers["mcp-session-id"] = (
+                    session_id  # Add to headers for subsequent requests
+                )
                 if self.verbose:
                     print(f"  Session ID: {session_id}")
 
@@ -245,9 +247,7 @@ class GoalTester:
                 print(f"  Child task ID: {child_id}")
 
             # 1c. Invalid node_type
-            text, _ = self.add_goal_node(
-                content="test", node_type="invalid"
-            )
+            text, _ = self.add_goal_node(content="test", node_type="invalid")
             check(
                 "Invalid node_type rejected",
                 text and "error" in text.lower(),
@@ -286,9 +286,7 @@ class GoalTester:
                 f"text={text[:100] if text else 'None'}",
             )
 
-            text = self.search_goal_nodes(
-                query="ZZZZNONEXISTENT", tags=[tag]
-            )
+            text = self.search_goal_nodes(query="ZZZZNONEXISTENT", tags=[tag])
             check(
                 "Search with no matches",
                 text and "No matching goal nodes found" in text,
@@ -328,8 +326,7 @@ class GoalTester:
                             len(tree.get("children", [])) >= 1,
                         )
                         child_in_tree = any(
-                            c.get("id") == child_id
-                            for c in tree.get("children", [])
+                            c.get("id") == child_id for c in tree.get("children", [])
                         )
                         if child_id:
                             check(
@@ -353,18 +350,14 @@ class GoalTester:
             print("\n[Test: update_goal_node]")
 
             if child_id:
-                text = self.update_goal_node(
-                    node_id=child_id, status="completed"
-                )
+                text = self.update_goal_node(node_id=child_id, status="completed")
                 check(
                     "Update status to completed",
                     text and "updated" in text.lower(),
                     f"text={text}",
                 )
 
-                text = self.update_goal_node(
-                    node_id=child_id, tags=[tag, "updated"]
-                )
+                text = self.update_goal_node(node_id=child_id, tags=[tag, "updated"])
                 check(
                     "Update tags",
                     text and "updated" in text.lower(),
@@ -374,9 +367,7 @@ class GoalTester:
             # Invalid status
             test_id = child_id or root_id
             if test_id:
-                text = self.update_goal_node(
-                    node_id=test_id, status="bad_status"
-                )
+                text = self.update_goal_node(node_id=test_id, status="bad_status")
                 check(
                     "Invalid status rejected",
                     text and "error" in text.lower(),
@@ -410,9 +401,7 @@ class GoalTester:
             self.cleanup()
 
         print(f"\n{'=' * 40}")
-        print(
-            f"Results: {passed} passed, {failed} failed out of {passed + failed}"
-        )
+        print(f"Results: {passed} passed, {failed} failed out of {passed + failed}")
         return failed == 0
 
 
@@ -436,7 +425,6 @@ def main():
         help="Server port (default: 8000; use 8001 for proxy)",
     )
     args = parser.parse_args()
-
 
     tester = GoalTester(host=args.host, port=args.port, verbose=args.verbose)
 

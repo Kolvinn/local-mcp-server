@@ -10,7 +10,7 @@ Two violations of the existing File Access Protocol (Section 6):
 - Root cause: goal-serving impulse ("understand project state") overrode protocol check
 
 ### Violation 2: Applied `head -c 5000` to `src/*` files
-- Ran `head -c 5000` on `src/main.py`, `src/test_main.py`, `mcp-proxy-server.py`
+- Ran `head -c 5000` on `src/main.py`, `src/test_main.py`, `mcp_proxy_server.py`
 - Protocol says: **Source code (src/*) → Always delegate to Explorer** (no sampling)
 - Root cause: conflation — treated source code like project_notes (sampling candidate instead of hard delegation)
 

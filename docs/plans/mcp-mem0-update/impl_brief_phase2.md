@@ -1,10 +1,10 @@
 # Phase 2 Implementation Brief
 
 ## Task
-Update `mcp-proxy-server.py` proxy config and RBAC permissions
+Update `mcp_proxy_server.py` proxy config and RBAC permissions
 
 ## Files
-- **Modify**: `mcp-proxy-server.py`
+- **Modify**: `mcp_proxy_server.py`
 - **Reference**: `docs/plans/mcp-mem0-update/task_plan.md` (Phase 2), `docs/plans/mcp-mem0-update/findings.md` (lines 60-64)
 
 ## What to Change
@@ -44,4 +44,4 @@ Note: In PERMISSION_TO_TOOLS, tools are stored as simple names (e.g., `"search_g
 - The `goals` entry should be removed entirely, not just commented
 
 ## Output
-Return the complete modified `mcp-proxy-server.py` file with all Phase 2 changes clearly marked.
+Return the complete modified `mcp_proxy_server.py` file with all Phase 2 changes clearly marked.

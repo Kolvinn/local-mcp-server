@@ -23,7 +23,7 @@ Bug 1: existing Qdrant `mem0` collection has 1536-dim schema but `nomic-embed-te
 | `mem_client` | `add_memory`, `search_memory`, `delete_memory`, `list_projects`, `sync_metadata` |
 | `goal_client` | `add_goal_node`, `search_goal_nodes`, `get_goal_tree`, `update_goal_node`, `delete_goal_node` |
 
-### `mcp-proxy-server.py`
+### `mcp_proxy_server.py`
 - No changes. Proxy mounts `main.py` as subprocess — internal changes invisible.
 
 ## Contract

@@ -1,0 +1,5 @@
+version: 1
+project_id: test-verify-project
+tags:
+- test
+scope_summary: Test project for MCP verification
