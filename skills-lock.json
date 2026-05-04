@@ -42,6 +42,12 @@
       "sourceType": "github",
       "computedHash": "3e43b045f0e3a91bc7686acc91d948d605c63548f833581ab50ed49d37711f5d"
     },
+    "mermaid-diagrams": {
+      "source": "softaworks/agent-toolkit",
+      "sourceType": "github",
+      "skillPath": "skills/mermaid-diagrams/SKILL.md",
+      "computedHash": "6d36e69adad781f106a2fb4b19ebc22bf0c211babdc0d1ae5822fa65abb48bd8"
+    },
     "multi-agent-orchestration": {
       "source": "qodex-ai/ai-agent-skills",
       "sourceType": "github",

@@ -1,0 +1,109 @@
+---
+config: {
+    "theme": "base",
+    "look": "classic",
+    "layout": "dagre",
+    "themeVariables": {
+        "primaryColor": "#4a90d9",
+        "primaryTextColor": "#ffffff",
+        "primaryBorderColor": "#2c6fb6",
+        "secondaryColor": "#f5a623",
+        "secondaryTextColor": "#ffffff",
+        "secondaryBorderColor": "#d4891a",
+        "tertiaryColor": "#7ed321",
+        "tertiaryTextColor": "#ffffff",
+        "tertiaryBorderColor": "#5ea81a",
+        "lineColor": "#00bcd4",
+        "errorColor": "#e74c3c",
+        "errorTextColor": "#ffffff",
+        "errorBorderColor": "#c0392b",
+        "neutralColor": "#95a5a6",
+        "neutralTextColor": "#ffffff",
+        "neutralBorderColor": "#7f8c8d"
+    }
+}
+---
+flowchart TD
+    Start(["User Input"])
+    Start --> Specificity{"Specificity\nAnalysis"}
+
+    Specificity -->|"Specific &\nWell-scoped"| Decompose["Decompose into\nSub-Chunks"]
+    Specificity -->|"Vague &\nOpen-ended"| ProbeUser["Probe: Goal?\nConstraints?\nScope?"]
+
+    ProbeUser --> WaitUser1(["Await User\nRefinement"])
+    WaitUser1 -.->|"New / refined input"| Start
+
+    Decompose --> NextChunk{"Next Chunk\nPending?"}
+    NextChunk -->|"Yes"| ComplexEval{"Complexity\nAssessment"}
+    NextChunk -->|"No - all done"| Aggregate["Aggregate Chunk\nResults"]
+
+    ComplexEval -->|"Trivial /\nSingle-step"| AntiDelegate{"Overhead to\ndelegate?"}
+    AntiDelegate -->|"Yes - just do it"| ExecuteSimple["Execute Directly"]
+    AntiDelegate -->|"No"| GapCheck
+
+    ComplexEval -->|"Moderate /\nNeeds context"| GapCheck
+    ComplexEval -->|"Complex /\nMulti-domain"| SpawnCheck{"Spawn\nSpecialist?"}
+
+    SpawnCheck -->|"Yes - domain\nexpert needed"| SpawnSpecialist["Spawn Specialist\nwith domain skills"]
+    SpawnCheck -->|"No - overkill"| GapCheck["What Context\nis Missing?"]
+
+    SpawnSpecialist --> WaitSpec["Await Specialist\nSummary"]
+
+    GapCheck -->|"File / Code\nStructure"| ExplorerRun["Explorer Agent:\nfilesystem dep search"]
+    GapCheck -->|"Semantic /\nMemory / Docs"| MemoryRun["Memory Agent:\nGraphRAG + Qdrant"]
+    GapCheck -->|"Both needed"| ParallelRun["Spawn Both\nin Parallel"]
+
+    ExplorerRun --> ContextBuf["Context Buffer"]
+    MemoryRun --> ContextBuf
+    ParallelRun --> ContextBuf
+
+    ContextBuf --> DeepGuard{"Progressive\nDeepening Guard"}
+
+    DeepGuard -->|"Too deep too early\nContext too narrow"| StepBack["Step Back:\nBroaden scope"]
+    DeepGuard -->|"Sufficiently broad\nfor this stage"| Sufficiency{"Sufficient\nContext?"}
+
+    StepBack --> UserCheckpoint(["Present Findings\nAsk Direction"])
+    UserCheckpoint -.->|"User redirects"| Start
+
+    Sufficiency -->|"No - more gaps"| GapCheck
+    Sufficiency -->|"Yes"| WaitSpec
+
+    WaitSpec --> Synthesize["Synthesize &\nReduce Results"]
+
+    Aggregate --> Synthesize
+    ExecuteSimple --> Synthesize
+
+    Synthesize --> GateEntry{{"Gate Pipeline"}}
+
+    GateEntry -->|"Gate 1"| G1["APPROACH:\n2-3 options +\ntrade-offs"]
+    G1 --> AwaitG1(["User approves\napproach?"])
+    AwaitG1 -->|"No - redirect"| Start
+    AwaitG1 -->|"Yes"| G2["SPEC:\nPseudocode spec\nprepared"]
+    G2 --> AwaitG2(["User approves\nspec?"])
+    AwaitG2 -->|"No - revise"| Start
+    AwaitG2 -->|"Yes"| G3["CODE:\nImplementation\n+ test results"]
+    G3 --> AwaitG3(["User approves\ncode?"])
+    AwaitG3 -->|"No - fix"| G3
+    AwaitG3 -->|"Yes"| G4["REVIEW:\nVerified +\nreviewed"]
+    G4 --> AwaitG4(["User signs off?"])
+    AwaitG4 -->|"No - rework"| G3
+    AwaitG4 -->|"Yes"| Deliver(["Deliver to User"])
+
+    Deliver --> LoopCheck{"Session\nContinues?"}
+    LoopCheck -->|"User refines /\ngrows request /\nnew task"| Start
+    LoopCheck -->|"New session\nwith shared\ncontext"| Start
+    LoopCheck -->|"Session ends\nhandoff saved"| Handoff(["Write handoff.md\nRate session"])
+
+    style Start fill:#4a90d9,stroke:#2c6fb6,color:#fff
+    style Deliver fill:#7ed321,stroke:#5ea81a,color:#fff
+    style Handoff fill:#95a5a6,stroke:#7f8c8d,color:#fff
+    style GateEntry fill:#f5a623,stroke:#d4891a,color:#fff
+    style Synthesize fill:#f5a623,stroke:#d4891a,color:#fff
+    style G1 fill:#fff8e1,stroke:#f5a623,color:#333
+    style G2 fill:#fff8e1,stroke:#f5a623,color:#333
+    style G3 fill:#fff8e1,stroke:#f5a623,color:#333
+    style G4 fill:#fff8e1,stroke:#f5a623,color:#333
+    style AwaitG1 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style AwaitG2 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style AwaitG3 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style AwaitG4 fill:#e74c3c,stroke:#c0392b,color:#fff

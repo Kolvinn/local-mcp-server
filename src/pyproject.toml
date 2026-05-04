@@ -20,6 +20,9 @@ dependencies = [
     "instructor>=1.15.1",
     "openai>=2.33.0",
     "qdrant-client>=1.17.1",
+    "graffitiai>=0.1.19",
+    "falkordb>=1.6.1",
+    "graphiti-core[falkordb]>=0.29.0",
 ]
 
 [dependency-groups]

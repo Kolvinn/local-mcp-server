@@ -1,0 +1,111 @@
+---
+config: {
+    "theme": "base",
+    "look": "classic",
+    "layout": "dagre",
+    "themeVariables": {
+        "primaryColor": "#4a90d9",
+        "primaryTextColor": "#ffffff",
+        "primaryBorderColor": "#2c6fb6",
+        "secondaryColor": "#f5a623",
+        "secondaryTextColor": "#ffffff",
+        "secondaryBorderColor": "#d4891a",
+        "tertiaryColor": "#7ed321",
+        "tertiaryTextColor": "#ffffff",
+        "tertiaryBorderColor": "#5ea81a",
+        "lineColor": "#00bcd4",
+        "errorColor": "#e74c3c",
+        "errorTextColor": "#ffffff",
+        "errorBorderColor": "#c0392b"
+    }
+}
+---
+flowchart LR
+    User(["User"]) -->|"input"| Clarify
+
+    subgraph Phase1 ["CLARIFY"]
+        direction TB
+        Clarify["Decompose Request\nAssess Specificity"]
+        Clarify --> Vague{"Too Vague?"}
+        Vague -->|"Yes"| AskUser(["Probe User"])
+        Vague -->|"No"| Align{"Aligns with\nProject Goal?"}
+        Align -->|"No"| Register["Register New Goal\nin Memory Manager"]
+        Align -->|"Yes"| Complex
+    end
+
+    AskUser -.->|"clarification"| User
+
+    subgraph Phase2 ["ASSESS"]
+        direction TB
+        Complex{"Complexity?"}
+        Complex -->|"Trivial"| DoIt["Execute Directly\nno delegation"]
+        Complex -->|"Moderate"| Gather
+        Complex -->|"Complex /\nMulti-domain"| Delegate{"Delegate to\nSpecialist?"}
+        Delegate -->|"Yes"| Spawn["Spawn Thinker\nwith domain skills"]
+        Delegate -->|"No"| Gather
+    end
+
+    subgraph Phase3 ["GATHER CONTEXT"]
+        direction TB
+        Gather["What Context\nis Missing?"]
+        Gather --> Code["Explorer:\nCodebase\nStructure"]
+        Gather --> Memory["Memory Agent:\nGraphRAG\n+ Qdrant"]
+        Gather --> Notes["Read:\nProject Notes\nDecisions / Bugs"]
+        Code --> Buffer["Context Buffer"]
+        Memory --> Buffer
+        Notes --> Buffer
+        Buffer --> DeepGuard{"Too Deep\nToo Early?"}
+        DeepGuard -->|"Yes"| BackOff["Step Back\nBroaden\nConsult User"]
+        DeepGuard -->|"No"| Sufficient
+    end
+
+    BackOff -.->|"re-scope"| User
+
+    subgraph Phase4 ["SYNTHESIZE"]
+        direction TB
+        Register --> Sufficient{"Sufficient\nContext?"}
+        DoIt --> Sufficient
+        Spawn --> Sufficient
+        Sufficient -->|"No"| Buffer
+        Sufficient -->|"Yes"| Synth["Synthesize\nReduce\nSummarize"]
+    end
+
+    subgraph Phase5 ["GATE"]
+        direction TB
+        Synth --> G1["1. APPROACH\nOptions + Trade-offs"]
+        G1 --> G1User{{"User\nApproves?"}}
+        G1User -->|"No"| G1Rework["Re-scope\nor Refine"]
+        G1User -->|"Yes"| G2["2. SPEC\nPseudocode"]
+        G2 --> G2User{{"User\nApproves?"}}
+        G2User -->|"No"| G2Rework["Re-design\nor Re-scope"]
+        G2User -->|"Yes"| G3["3. CODE\nImplementation\n+ Tests"]
+        G3 --> G3User{{"User\nApproves?"}}
+        G3User -->|"No"| G3Fix["Fix\nRe-implement"]
+        G3User -->|"Yes"| G4["4. REVIEW\nVerified Code"]
+        G4 --> G4User{{"User\nSigns Off?"}}
+        G4User -->|"No"| G4Fix["Rework\nvia G3"]
+        G4User -->|"Yes"| Deliver(["Deliver"])
+    end
+
+    G1Rework --> Clarify
+    G2Rework --> Clarify
+    G3Fix --> G3
+    G4Fix --> G3
+
+    Deliver --> Loop{"Continued?"}
+    Loop -->|"New task /\nSame session"| Clarify
+    Loop -->|"New session"| Clarify
+    Loop -->|"Session end"| Handoff(["Persist State\nRate Session"])
+
+    style Phase1 fill:#e8f0fe,stroke:#4a90d9,stroke-width:2px
+    style Phase2 fill:#fef3e0,stroke:#f5a623,stroke-width:2px
+    style Phase3 fill:#e8f5e9,stroke:#7ed321,stroke-width:2px
+    style Phase4 fill:#f3e5f5,stroke:#8e44ad,stroke-width:2px
+    style Phase5 fill:#fce4ec,stroke:#e74c3c,stroke-width:2px
+    style AskUser fill:#e74c3c,stroke:#c0392b,color:#fff
+    style G1User fill:#e74c3c,stroke:#c0392b,color:#fff
+    style G2User fill:#e74c3c,stroke:#c0392b,color:#fff
+    style G3User fill:#e74c3c,stroke:#c0392b,color:#fff
+    style G4User fill:#e74c3c,stroke:#c0392b,color:#fff
+    style Deliver fill:#7ed321,stroke:#5ea81a,color:#fff
+    style Handoff fill:#95a5a6,stroke:#7f8c8d,color:#fff

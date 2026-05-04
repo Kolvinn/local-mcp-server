@@ -1,0 +1,80 @@
+flowchart TD
+    %% === ENTRY ===
+    Start(["User Request / Chat Message"]) --> Specificity
+
+    %% === CLARIFICATION LOOP (top left) ===
+    Specificity{"Specificity\nAnalysis"}
+    Specificity -->|"Specific &\nWell-scoped"| ScopeChunks["Decompose into\nSub-Questions / Chunks"]
+    Specificity -->|"Vague &\nOpen-ended"| ClarityProbe["Probe for Clarity:\nWhat is the goal?\nWhat are the constraints?"]
+
+    ClarityProbe --> UserClarify["Ask User for\nRefinement"]
+    UserClarify --> Start
+
+    ScopeChunks --> NextChunk{"Next Chunk\nUnprocessed?"}
+    NextChunk -->|"Yes"| Complexity
+    NextChunk -->|"No - all done"| Aggregate["Aggregate Chunk\nResults"]
+
+    %% === COMPLEXITY ASSESSMENT ===
+    Complexity{"Complexity\nAssessment"}
+    Complexity -->|"Trivial /\nSingle-step"| DirectAnswer["Answer Directly\nor Single Action"]
+    Complexity -->|"Moderate /\nNeeds context"| ContextGapCheck
+    Complexity -->|"Complex /\nMulti-domain"| SpecialistCheck
+
+    %% === ANTI-PATTERN: Don't over-delegate trivial ===
+    DirectAnswer --> AntiNoDelegate{"Would delegating\nadd overhead?"}
+    AntiNoDelegate -->|"Yes - just do it"| ExecuteSimple["Execute &\nRespond to User"]
+    AntiNoDelegate -->|"No - useful"| ContextGapCheck
+
+    %% === CONTEXT GAP CHECK ===
+    ContextGapCheck{"What Context\nis Missing?"}
+
+    ContextGapCheck -->|"File / Code\nStructure"| ExplorerPath["Spawn Explorer\nfilesystem / dep search"]
+    ContextGapCheck -->|"Semantic /\nMemory / Docs"| MemoryPath["Spawn Memory Extractor\nGraphRAG + Qdrant"]
+    ContextGapCheck -->|"Both needed"| ParallelFetch["Spawn Both\nin Parallel"]
+
+    ExplorerPath --> ContextLoad["Load into\nContext Buffer"]
+    MemoryPath --> ContextLoad
+    ParallelFetch --> ContextLoad
+
+    %% === PROGRESSIVE DEEPENING GUARD ===
+    ContextLoad --> DeepGuard{"Progressive\nDeepening Guard"}
+
+    DeepGuard -->|"ANIT-PATTERN:\nGoing deep too early\nContext too narrow"| PivotBroad["Pivot: Step Back\nBroaden scope\nConsult user if needed"]
+    DeepGuard -->|"Sufficiently broad\nfor current stage"| Sufficiency
+
+    PivotBroad --> UserCheckpoint["Present Findings\nAsk: narrow, continue,\nor redirect?"]
+    UserCheckpoint --> Start
+
+    %% === SUFFICIENCY CHECK ===
+    Sufficiency{"Sufficient Context\nto Proceed?"}
+    Sufficiency -->|"No - still gaps"| ContextGapCheck
+    Sufficiency -->|"Yes"| GateCheck
+
+    %% === SPECIALIST SPAWN ===
+    SpecialistCheck{"Spawn Specialist\nAgent?"}
+    SpecialistCheck -->|"Yes -\nDomain expert\nneeded"| SpawnSpecialist["Spawn Specialist\nw/ domain skills loaded"]
+
+    SpecialistCheck -->|"ANTI-PATTERN:\nOverkill for\nthis scope"| DontSpawn["Do NOT spawn\nFall back to\ncontext gathering"]
+
+    DontSpawn --> ContextGapCheck
+
+    SpawnSpecialist --> WaitSpecialist["Await Specialist\nSummary"]
+    WaitSpecialist --> Synthesize
+
+    %% === GATE DECISION ===
+    GateCheck{"Gate Decision"}
+    GateCheck -->|"Present to User\nfor approval"| UserGate["Present Options\n+ Recommendation\nWAIT for sign-off"]
+    GateCheck -->|"ANTI-PATTERN:\nAutonomous\nproceed"| UserGate
+    GateCheck -->|"Synthesize &\ncontinue"| Synthesize
+
+    UserGate --> UserChoice{"User Response"}
+    UserChoice -->|"Approve /\nProceed"| Synthesize
+    UserChoice -->|"Redirect /\nNew constraints"| Start
+    UserChoice -->|"Need more info"| ContextGapCheck
+
+    %% === SYNTHESIS & OUTPUT ===
+    Synthesize["Synthesize Results\nReduce / Summarize"]
+    Aggregate --> Synthesize
+    Synthesize --> OutputCheck{"Output\nComplete?"}
+    OutputCheck -->|"Yes"| Done(["Return to User\nSession Complete"])
+    OutputCheck -->|"No - more\nwork needed"| NextChunk

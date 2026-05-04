@@ -1,0 +1,165 @@
+---
+config: {
+    "theme": "base",
+    "look": "classic",
+    "layout": "dagre",
+    "themeVariables": {
+        "primaryColor": "#4a90d9",
+        "primaryTextColor": "#ffffff",
+        "primaryBorderColor": "#2c6fb6",
+        "secondaryColor": "#f5a623",
+        "secondaryTextColor": "#ffffff",
+        "secondaryBorderColor": "#d4891a",
+        "tertiaryColor": "#7ed321",
+        "tertiaryTextColor": "#ffffff",
+        "tertiaryBorderColor": "#5ea81a",
+        "lineColor": "#00bcd4",
+        "errorColor": "#e74c3c",
+        "errorTextColor": "#ffffff",
+        "errorBorderColor": "#c0392b"
+    }
+}
+---
+sequenceDiagram
+    autonumber
+    actor User
+    participant Orchestrator
+    participant MemoryMgr
+    participant SystemThinker
+    participant Explorer
+    participant MemoryAgent
+    participant Implementer
+    participant Reviewer
+
+    %% === ORIENT ===
+    User->>Orchestrator: Request / Chat Input
+    Note over Orchestrator: PHASE 0: ORIENT
+    Orchestrator->>+MemoryMgr: Query project state
+    MemoryMgr-->>-Orchestrator: Current phase + goal hierarchy
+    Orchestrator->>+MemoryMgr: Light RAG: recent decisions, key facts
+    MemoryMgr-->>-Orchestrator: Summarized context
+    Note over Orchestrator: Position established
+
+    %% === CLARIFY ===
+    Note over Orchestrator: PHASE 1: CLARIFY
+    Orchestrator->>Orchestrator: Assess specificity
+
+    alt Vague request
+        Orchestrator-->>User: Probe: goal? constraints? scope?
+        User-->>Orchestrator: Refined input
+    end
+
+    Orchestrator->>+MemoryMgr: Check goal alignment
+    MemoryMgr-->>-Orchestrator: Match / no match
+
+    alt New goal
+        Orchestrator->>MemoryMgr: Register new goal in hierarchy
+    end
+
+    %% === ASSESS ===
+    Note over Orchestrator: PHASE 2: ASSESS
+    Orchestrator->>Orchestrator: Evaluate complexity
+
+    alt Complex / multi-domain
+        Orchestrator->>+SystemThinker: Spawn with domain skills
+        SystemThinker-->>-Orchestrator: Summary + recommendation
+    else Moderate / needs context
+        Note over Orchestrator: Proceed to context gathering
+    else Trivial
+        Note over Orchestrator: Execute directly
+    end
+
+    %% === GATHER ===
+    Note over Orchestrator: PHASE 3: GATHER CONTEXT
+
+    par Light retrieval (early)
+        Orchestrator->>+MemoryMgr: Project notes, decisions, bugs
+        MemoryMgr-->>-Orchestrator: Relevant context
+    and File / code structure
+        Orchestrator->>+Explorer: Search filesystem, deps
+        Explorer-->>-Orchestrator: Structural map
+    and Deep semantic search
+        Orchestrator->>+MemoryAgent: GraphRAG + Qdrant query
+        MemoryAgent-->>-Orchestrator: Semantic results
+    end
+
+    Note over Orchestrator: Progressive deepening guard
+
+    alt Too deep too early
+        Orchestrator-->>User: Present findings, ask direction
+        User-->>Orchestrator: Narrow / broaden / redirect
+    end
+
+    %% === SYNTHESIZE ===
+    Note over Orchestrator: PHASE 4: SYNTHESIZE
+    Orchestrator->>Orchestrator: Reduce + summarize context
+
+    %% === GATE 1: APPROACH ===
+    Note over Orchestrator,User: GATE 1: APPROACH
+    Orchestrator-->>User: 2-3 options + trade-offs
+
+    alt User rejects approach
+        User-->>Orchestrator: Re-scope or refine
+        Note over Orchestrator: Return to ORIENT
+    else User approves
+        User-->>Orchestrator: Approved
+        Orchestrator->>MemoryMgr: Log decision
+    end
+
+    %% === GATE 2: SPEC ===
+    Note over Orchestrator,User: GATE 2: SPEC
+    Orchestrator->>+SystemThinker: Write pseudocode spec
+    SystemThinker-->>-Orchestrator: Spec written
+
+    Orchestrator-->>User: Spec for approval
+
+    alt User rejects spec
+        User-->>Orchestrator: Re-design
+        Note over Orchestrator: Return to ORIENT
+    else User approves
+        User-->>Orchestrator: Approved
+        Orchestrator->>MemoryMgr: Log approved spec
+    end
+
+    %% === GATE 3: CODE ===
+    Note over Orchestrator,User: GATE 3: CODE
+    Orchestrator->>+Implementer: Translate spec to code
+    Implementer-->>-Orchestrator: Code + test results
+
+    Orchestrator-->>User: Implementation for approval
+
+    alt User rejects code
+        User-->>Orchestrator: Fix / re-implement
+        Orchestrator->>+Implementer: Revise
+        Implementer-->>-Orchestrator: Revised code
+    else User approves
+        User-->>Orchestrator: Approved
+        Orchestrator->>MemoryMgr: Log implementation
+    end
+
+    %% === GATE 4: REVIEW ===
+    Note over Orchestrator,User: GATE 4: REVIEW
+    Orchestrator->>+Reviewer: Verify code against spec
+    Reviewer-->>-Orchestrator: Review: pass / fail / changes
+
+    Orchestrator-->>User: Review results + verdict
+
+    alt User rejects review
+        User-->>Orchestrator: Rework needed
+        Note over Orchestrator: Return to GATE 3
+    else User signs off
+        User-->>Orchestrator: Signed off
+        Orchestrator->>MemoryMgr: Log review, update phase
+    end
+
+    %% === DELIVER ===
+    Note over Orchestrator,User: DELIVER
+    Orchestrator-->>User: Final result
+
+    alt Session continues
+        User-->>Orchestrator: New task / refine / new session
+        Note over Orchestrator: Loop to ORIENT
+    else Session ends
+        Orchestrator->>MemoryMgr: Persist handoff, ratings
+        Orchestrator-->>User: Session complete
+    end

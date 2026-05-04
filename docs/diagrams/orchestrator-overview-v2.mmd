@@ -1,0 +1,125 @@
+---
+config: {
+    "theme": "base",
+    "look": "classic",
+    "layout": "dagre",
+    "themeVariables": {
+        "primaryColor": "#4a90d9",
+        "primaryTextColor": "#ffffff",
+        "primaryBorderColor": "#2c6fb6",
+        "secondaryColor": "#f5a623",
+        "secondaryTextColor": "#ffffff",
+        "secondaryBorderColor": "#d4891a",
+        "tertiaryColor": "#7ed321",
+        "tertiaryTextColor": "#ffffff",
+        "tertiaryBorderColor": "#5ea81a",
+        "lineColor": "#00bcd4",
+        "errorColor": "#e74c3c",
+        "errorTextColor": "#ffffff",
+        "errorBorderColor": "#c0392b",
+        "memoryColor": "#8e44ad",
+        "memoryTextColor": "#ffffff",
+        "memoryBorderColor": "#6c3483"
+    }
+}
+---
+flowchart LR
+    User(["User"]) -->|"input"| Orient
+
+    subgraph Phase0 ["ORIENT"]
+        direction TB
+        Orient["Where Are We?"]
+        Orient --> LightRAG["Light RAG:\nCurrent Phase\nGoal Hierarchy\nRecent Decisions\nKey Facts"]
+        LightRAG --> MemMgr[("Memory Manager\nPhase Tracker +\nGoal Graph")]
+        MemMgr --> Oriented["Position Established:\nGoal + Phase + Context"]
+    end
+
+    subgraph Phase1 ["CLARIFY"]
+        direction TB
+        Oriented --> Clarify["Decompose Request\nAssess Specificity"]
+        Clarify --> Vague{"Too Vague?"}
+        Vague -->|"Yes"| AskUser(["Probe User"])
+        Vague -->|"No"| Align{"Aligns with\nKnown Goal?"}
+        Align -->|"No"| Register["Register New Goal\nin Memory Manager"]
+        Align -->|"Yes"| Complex
+    end
+
+    AskUser -.->|"clarification"| User
+
+    subgraph Phase2 ["ASSESS"]
+        direction TB
+        Complex{"Complexity?"}
+        Complex -->|"Trivial"| DoIt["Execute Directly\nno delegation"]
+        Complex -->|"Moderate"| Gather
+        Complex -->|"Complex"| Delegate{"Delegate to\nSpecialist?"}
+        Delegate -->|"Yes"| Spawn["Spawn Thinker\nwith domain skills"]
+        Delegate -->|"No"| Gather
+    end
+
+    subgraph Phase3 ["GATHER CONTEXT"]
+        direction TB
+        Gather["What Context\nis Missing?"]
+        Gather --> Code["Explorer:\nCodebase\nStructure"]
+        Gather --> DeepMemory["Memory Agent:\nDeep GraphRAG\n+ Qdrant Vector"]
+        Gather --> Notes["Read:\nProject Notes\nDecisions / Bugs"]
+        Code --> Buffer["Context Buffer"]
+        DeepMemory --> Buffer
+        Notes --> Buffer
+        Buffer --> DeepGuard{"Too Deep\nToo Early?"}
+        DeepGuard -->|"Yes"| BackOff["Step Back\nBroaden\nConsult User"]
+        DeepGuard -->|"No"| Sufficient
+    end
+
+    BackOff -.->|"re-scope"| User
+
+    subgraph Phase4 ["SYNTHESIZE"]
+        direction TB
+        Register --> Sufficient{"Sufficient\nContext?"}
+        DoIt --> Sufficient
+        Spawn --> Sufficient
+        Sufficient -->|"No"| Buffer
+        Sufficient -->|"Yes"| Synth["Synthesize\nReduce\nSummarize"]
+    end
+
+    subgraph Phase5 ["GATE"]
+        direction TB
+        Synth --> G1["1. APPROACH\nOptions + Trade-offs"]
+        G1 --> G1User{{"User\nApproves?"}}
+        G1User -->|"No"| G1Rework["Re-scope\nor Refine"]
+        G1User -->|"Yes"| G2["2. SPEC\nPseudocode"]
+        G2 --> G2User{{"User\nApproves?"}}
+        G2User -->|"No"| G2Rework["Re-design\nor Re-scope"]
+        G2User -->|"Yes"| G3["3. CODE\nImplementation\n+ Tests"]
+        G3 --> G3User{{"User\nApproves?"}}
+        G3User -->|"No"| G3Fix["Fix\nRe-implement"]
+        G3User -->|"Yes"| G4["4. REVIEW\nVerified Code"]
+        G4 --> G4User{{"User\nSigns Off?"}}
+        G4User -->|"No"| G4Fix["Rework\nvia G3"]
+        G4User -->|"Yes"| Deliver(["Deliver"])
+    end
+
+    G1Rework --> Orient
+    G2Rework --> Orient
+    G3Fix --> G3
+    G4Fix --> G3
+
+    Deliver --> Loop{"Continued?"}
+    Loop -->|"New task\nSame session"| Orient
+    Loop -->|"New session"| Orient
+    Loop -->|"Session end"| Handoff(["Persist State\nRate Session"])
+
+    style Phase0 fill:#f4ecf7,stroke:#8e44ad,stroke-width:2px
+    style Phase1 fill:#e8f0fe,stroke:#4a90d9,stroke-width:2px
+    style Phase2 fill:#fef3e0,stroke:#f5a623,stroke-width:2px
+    style Phase3 fill:#e8f5e9,stroke:#7ed321,stroke-width:2px
+    style Phase4 fill:#f3e5f5,stroke:#8e44ad,stroke-width:2px
+    style Phase5 fill:#fce4ec,stroke:#e74c3c,stroke-width:2px
+    style MemMgr fill:#d2b4de,stroke:#8e44ad,color:#333
+    style LightRAG fill:#e1bee7,stroke:#8e44ad,color:#333
+    style AskUser fill:#e74c3c,stroke:#c0392b,color:#fff
+    style G1User fill:#e74c3c,stroke:#c0392b,color:#fff
+    style G2User fill:#e74c3c,stroke:#c0392b,color:#fff
+    style G3User fill:#e74c3c,stroke:#c0392b,color:#fff
+    style G4User fill:#e74c3c,stroke:#c0392b,color:#fff
+    style Deliver fill:#7ed321,stroke:#5ea81a,color:#fff
+    style Handoff fill:#95a5a6,stroke:#7f8c8d,color:#fff

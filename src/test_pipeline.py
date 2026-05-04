@@ -2,7 +2,8 @@ import os
 import uuid
 import json
 from typing import List, Literal
-
+from graphiti_core import Graphiti
+from graphiti_core.driver.falkordb_driver import FalkorDriver
 import instructor
 import openai
 from pydantic import BaseModel, Field
@@ -28,6 +29,21 @@ COLLECTION_NAME = "test_agent_memories"
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
 EMBEDDING_DIMS = os.getenv("EMBEDDING_DIMS", "768")
+
+
+
+# 1. Set OpenAI Key
+os.environ["OPENAI_API_KEY"] = "sk-..."
+
+# 2. Configure FalkorDB driver
+driver = FalkorDriver(
+    host="optimistic_benz",
+    port=6379,
+    # database="my_graph" # Optional custom database name
+)
+
+# 3. Initialize Graphiti with the driver
+graphiti = Graphiti(graph_driver=driver)
 # =====================================================================
 # 2. SCHEMA DEFINITION (The "Contract")
 # =====================================================================
