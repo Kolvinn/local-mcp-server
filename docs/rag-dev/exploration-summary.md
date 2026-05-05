@@ -50,6 +50,21 @@ docs/rag-dev/
 └── edge-contract.json         ← NEW: machine-readable adjacency matrix
 ```
 
+## Environment for Implementers
+
+- **Python:** `/home/dev/app/src/.venv/bin/python` (v3.14.4, venv managed by `uv` — `pip` is NOT in `.venv/bin/`, use `uv pip` if packages needed)
+- **pytest:** `/home/dev/app/src/.venv/bin/pytest` (v9.0.3) — invoke via `cd /home/dev/app/src && .venv/bin/python -m pytest`
+- **Working directory:** `/home/dev/app/src` — all imports assume `src/` is on the path (runs with `PYTHONPATH=/home/dev/app/src` or `cd src && python -m pytest`)
+- **Package manager:** `uv` at `/home/dev/conda/bin/uv` — use for installing deps if needed (not needed for A1)
+- **Import style:** Use **relative imports** within `src/memory/` (e.g. `from .models import ...`). Do NOT use absolute `from src.memory.*` imports — `src/` is NOT a package (no `src/__init__.py`).
+- **pydantic:** v2.x already installed in venv
+
+## Known Issues (pre-T5)
+
+- `src/memory/__init__.py` line 3: uses `from src.memory.models` — MUST be `from .models`
+- `src/memory/__init__.py` line 29: uses `from src.memory.edge_validator` — MUST be `from .edge_validator`
+- `src/memory/edge_validator.py` lines 85, 148: uses `from src.memory.models` — MUST be `from .models`
+
 ## Files NOT to touch in A1
 
 - `memory_service.py` — separate system, Mem0-based

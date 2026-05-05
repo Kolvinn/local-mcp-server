@@ -1,6 +1,6 @@
 """Memory models and edge validation for the GraphRAG Memory Manager."""
 
-from src.memory.models import (
+from .models import (
     Category,
     NodeType,
     EdgeType,
@@ -26,7 +26,7 @@ __all__ = [
 # edge_validator.py is built in a later task — forward-import with fallback
 # so downstream code can import everything from src.memory regardless of build order.
 try:
-    from src.memory.edge_validator import (  # type: ignore[import-unused]
+    from .edge_validator import (  # type: ignore[import-unused]
         validate,
         register_edge,
         get_registered_edges,
