@@ -41,9 +41,10 @@ driver = FalkorDriver(
     port=6379,
     # database="my_graph" # Optional custom database name
 )
-
+driver.search_interface
 # 3. Initialize Graphiti with the driver
 graphiti = Graphiti(graph_driver=driver)
+graphiti.search_()
 # =====================================================================
 # 2. SCHEMA DEFINITION (The "Contract")
 # =====================================================================

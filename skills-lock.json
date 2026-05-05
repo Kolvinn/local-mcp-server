@@ -42,6 +42,18 @@
       "sourceType": "github",
       "computedHash": "3e43b045f0e3a91bc7686acc91d948d605c63548f833581ab50ed49d37711f5d"
     },
+    "memgraph-graph-rag": {
+      "source": "memgraph/skills",
+      "sourceType": "github",
+      "skillPath": "memgraph-graph-rag/SKILL.md",
+      "computedHash": "6cbe1c26fd75ea282964fda27955403572a9281e924d2db9450a22c24d627c53"
+    },
+    "memgraph-python-query-modules": {
+      "source": "memgraph/skills",
+      "sourceType": "github",
+      "skillPath": "memgraph-python-query-modules/SKILL.md",
+      "computedHash": "60ad05c03292ad944495b6c3591f9b56b966eca292b5ce36273ef702e125fcf0"
+    },
     "mermaid-diagrams": {
       "source": "softaworks/agent-toolkit",
       "sourceType": "github",
@@ -75,6 +87,18 @@
       "sourceType": "github",
       "skillPath": "awesome_agent_skills/python-expert/SKILL.md",
       "computedHash": "502979957aa63e93b0366d357a241695181c93e739e1bb75b6410505bcc91ba9"
+    },
+    "qdrant": {
+      "source": "vm0-ai/vm0-skills",
+      "sourceType": "github",
+      "skillPath": "qdrant/SKILL.md",
+      "computedHash": "7d738587568f44c22cf9292bfec4ec305bf7d316b5abab0b59d7466b2a3a9fcc"
+    },
+    "qdrant-vector-search": {
+      "source": "davila7/claude-code-templates",
+      "sourceType": "github",
+      "skillPath": "cli-tool/components/skills/ai-research/rag-qdrant/SKILL.md",
+      "computedHash": "7d759309b0c22b2d6097562d6d349fdac38cfc661fcfbe658f158444403310da"
     },
     "sequential-thinking": {
       "source": "mrgoonie/claudekit-skills",

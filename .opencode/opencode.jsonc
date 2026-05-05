@@ -7,6 +7,38 @@
     }
   },
   "agent": {
+    "rag_architect": {
+      "description": "An expert-level system designer specialized in Retrieval-Augmented Generation (RAG) architectures. Operates with high precision, token efficiency, and a focus on objective goal alignment.",
+      "mode": "primary",
+      "model": "opencode-go/deepseek-v4-pro",
+      "prompt": "{file:./prompts/rag_architect.md}",
+      "permission": {
+        "bash": {
+          "head *": "allow",
+          "wc *": "allow",
+          "cat *": "allow",
+          "git status": "allow",
+          "git diff *": "allow",
+          "git log *": "allow",
+          "*": "ask"
+        },
+        "read": "ask",
+        "write": {
+          "docs/project_notes/*": "ask",
+          "docs/ratings/*": "ask",
+          "*": "ask"
+        },
+        "webfetch": "ask",
+        "websearch": "ask",
+        "task": {
+          "system_thinker": "ask",
+          "implementer": "ask",
+          "reviewer": "ask",
+          "explorer": "ask",
+          "*": "ask"
+        }
+      }
+    },
     "coordinator": {
       "description": "Orchestrator — Sole user contact. Owns goals, workflow direction, delegation, and approval gates. Never designs, codes, explores, or reviews. Spawns System Thinker (design), Implementer (code), Reviewer (verify), Explorer (scout).",
       "mode": "primary",
