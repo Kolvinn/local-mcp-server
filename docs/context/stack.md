@@ -9,14 +9,15 @@
 - the `.env` file in the app root directory contains the appropriate env vars that should either be injected into the framework, or readfrom
 - BUNX REPLACES NPX
 - CONDA MANAGES BUN, PYTHON, UV, ETC.
-- THIS CURRENT ENVIRONMENT IS CALLED 'dev1'. This is where everything is installed 
+- Conda provides the system-level environment (bun, uv, etc.). uv manages the project Python venv at `src/.venv/`. 
 
 ## Frameworks & Libraries
 - MCP Server: FastMCP (streamable-http transport)
-- Memory: mem0ai (in-process Python library)
+- Memory: Greenfield GraphRAG (dual-store: Qdrant + graph DB). Former mem0ai service still exists but is not in active development.
 - HTTP: httpx (async client)
-- Data validation: Pydantic models
+- Data validation: Pydantic v2 (>=2.10.6)
 - Config: python-dotenv, os.getenv() with defaults
+- Testing: pytest (>=8.3.4)
 
 ## Infrastructure
 - Container: Docker Compose, single service on `internal-net` (external network)

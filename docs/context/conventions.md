@@ -19,11 +19,15 @@
 - No hardcoded hostnames, ports, or model names
 
 ## Testing
-- pytest for test execution
-- Tests in src/test_main.py or tests/ directory
-- Test via MCP protocol (httpx POST) for integration tests
-- Direct function calls acceptable for unit tests
+- pytest for test execution (run from `src/` directory with `.venv/bin/python -m pytest`)
+- Tests in `src/tests/`, `src/test_*.py`, or a package-local `tests/` directory
+- Direct function calls for unit tests; MCP protocol (httpx POST) for integration tests where applicable
 - AGENT_ID=test_ingest for test isolation
+
+## Imports
+- Relative imports within packages (e.g., `from .models import ...`)
+- Do NOT use `from src.*` — `src/` is not a Python package (no `src/__init__.py`)
+- Do not add `__init__.py` to `src/` without explicit architectural reason
 
 ## User/Auth
 - AGENT_ID env var (default: "default_agent")
