@@ -1,12 +1,14 @@
-# Session Handoff — Stage A1 Complete → Stage A2 Ready
+# Session Handoff — A1 + A2 Complete → Stage A3 Ready
 
-**Date:** 2026-05-05
-**Agent:** RAG Flow Architect (orca) + 3x implementer subagents
-**Outcome:** Stage A1 fully built, tested (82/82 passing), approved
+**Date:** 2026-05-06
+**Agent:** RAG Flow Architect + 4x implementer subagents
+**Outcome:** Stages A1 + A2 fully built. A1: 82/82 tests passing. A2: 6 files produced, acceptance gate testing pending.
 
 ---
 
-## 1. What Was Built (Stage A1 Artifacts)
+## 1. What Was Built
+
+### Stage A1 Artifacts
 
 | File | Purpose |
 |------|---------|
@@ -18,49 +20,56 @@
 | `spec/spec-schema-stage-a1-core-models.md` | Full spec v1.1 with extensibility documented |
 | `docs/rag-dev/exploration-summary.md` | Codebase analysis + env guide |
 
+### Stage A2 Artifacts
+
+| File | Purpose |
+|------|---------|
+| `src/memory/chunker.py` | `chunk(text) -> list[str]` — paragraph-split with 2000-char threshold |
+| `src/memory/embedder.py` | `embed(texts) -> list[list[float]]` — Ollama, model from `EMBEDDING_MODEL` env var |
+| `src/memory/qdrant_client.py` | `QdrantClient` wrapper — create_collection, upsert, search, scroll, count, create_payload_indexes |
+| `src/memory/classifier.py` | `classify(text) -> (Category, tags)` — **mock** (keyword heuristics). Real deepseek-flash pending. |
+| `src/memory/ingest.py` | `ingest_file(path) -> IngestResult` — full pipeline orchestrator |
+| `src/scripts/ingest_test.py` | CLI entry: `python scripts/ingest_test.py <file_path>` |
+| `spec/spec-schema-stage-a2-qdrant-pipeline.md` | Full A2 spec with env-var-driven config |
+
 ---
 
-## 2. Meta-Lessons: How the Architect Should Interact
+## 2. Meta-Lessons (see also `docs/context/LEARNINGS.md`)
+
+These are project-specific notes. Generic interaction rules are in LEARNINGS.md.
 
 ### NEVER write code yourself
-The user stopped me mid-edit with: *"YOU SHOULD NEVER CODE YOURSELF. That is a waste of tokens, you should give the architecture and decisions for the implementer, and they code it."* Even trivial fixes (import paths) should be delegated. The spec defines WHAT, the implementer decides HOW.
+Delegate all code to implementers. Even trivial fixes.
 
-### Delegation is the primary tool
-- Write specs with clear interfaces, behavior descriptions, acceptance criteria
-- Spawn implementers with: spec file location + environmental context + exact task scope
-- Do NOT paste full spec content into the prompt — tell them where the spec file is
-- A single implementer should handle 1-3 tightly related files, not a 500-line spec
+### Delegation checklist
+- Spec file location + exact section references
+- Environmental context (venv path, pytest command, import style, package manager)
+- Skills to load (only what the implementer needs)
+- Do NOT paste spec content — point to the file
+
+### Architect skill loading: clear decision protocol
+Only load a skill if YOU need it for architectural decision-making. Do NOT load a skill just because an implementer will need it. Test: "Do I need this to design the spec?" If no, don't load it.
 
 ### Spec-first, always
-The `create-specification` skill template is the canonical format. Use it. Spec lives in `/home/dev/app/spec/`. Naming: `spec-[purpose]-[description].md`.
+Use `create-specification` skill template. Naming: `spec-[purpose]-[description].md`.
 
 ### Ask before acting, approve between stages
-User gates every stage transition. Present summary → get approval → proceed.
-
-### Challenge decisions with evidence
-When the user asked about extensibility (tags/edges growing at runtime), I correctly identified that `StrEnum` is closed-world and proposed `TagRegistry` singleton + `register_edge_type()`. User approved.
 
 ---
 
 ## 3. Subagent Behaviors & Quirks
 
-### Implementer agent failures
-- **First attempt at T4+T5**: Agent returned empty result — likely stuck in skill loading or context parsing loop. Fix: respawn with tighter scope (T4 alone first, smaller prompt).
-- **Success pattern**: Break work into small, focused units. T1+T2+T3 (data layer) worked. T4 alone (validator) worked. T5 alone (tests + import fix) worked.
+### A2 spawn pattern (successful)
+Four parallel spawns: T1 (chunker+embedder), T2 (qdrant_client), T3 (classifier). Then T4 (ingest+CLI) after. All returned clean results, 0 failures.
 
-### Implementing agent needs environmental context injected
-Implementers don't auto-discover venv paths or import conventions. Every spawn MUST include:
-```
-Python: /home/dev/app/src/.venv/bin/python (v3.14.4)
-pytest: cd /home/dev/app/src && .venv/bin/python -m pytest
-Working directory: /home/dev/app/src
-Import style: relative imports only (from .models import ...)
-```
+### What worked
+- Breaking into 4 tight-scope spawns (1–2 files each)
+- Pointing to spec sections rather than pasting
+- Injecting full environmental context into every spawn
 
-### Skill loading
-- `python-expert` — always load for Python implementers
-- `context7` — only when implementing library-specific code
-- The skill tool loads instructions into context — agents can get stuck if the skill is too verbose
+### Implementer resolved spec contradictions autonomously
+- REQ-006 said "UUIDv4" but §9 prescribed UUIDv5 for deterministic content-hash IDs. Implementer chose UUIDv5 (correct — needed for idempotent upsert).
+- Chunker threshold: REQ-003 said "~1000 chars" but §9 example showed 1001 chars kept together. Implementer chose 2000 to match examples.
 
 ---
 
@@ -69,63 +78,100 @@ Import style: relative imports only (from .models import ...)
 ```
 Python:    /home/dev/app/src/.venv/bin/python (v3.14.4)
 pytest:    cd /home/dev/app/src && .venv/bin/python -m pytest (v9.0.3)
-pip:       NOT in .venv/bin/ — use uv (at /home/dev/conda/bin/uv)
+pip:       use uv at /home/dev/conda/bin/uv (uv pip install ...)
 Workdir:   /home/dev/app/src
 Imports:   RELATIVE only within src/memory/. src/ is NOT a package.
            Do NOT use "from src.memory.models import ..."
            Use    "from .models import ..."
-Venve:     created by uv, project at /home/dev/app/src/pyproject.toml
-Deps:      pydantic>=2.10.6, pytest>=8.3.4 already installed
+           For src/scripts/: use sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+Venv:      created by uv, project at /home/dev/app/src/pyproject.toml
+Deps:      pydantic>=2.10.6, pytest>=8.3.4, qdrant-client (install via uv pip install qdrant-client)
+Env vars:  /home/dev/app/.env — QDRANT_HOST, QDRANT_PORT, QDRANT_COLLECTION_NAME,
+           OLLAMA_URL, EMBEDDING_MODEL (also LLM_MODEL, AGENT_ID)
 ```
 
 ---
 
-## 5. Architecture Decisions Made This Session
+## 5. Architecture Decisions
+
+### From A1
 
 | Decision | Rationale |
 |----------|-----------|
 | `TagRegistry` singleton instead of fixed enums | Tags are cross-cutting and extensible; runtime registration needed |
 | `EdgeType` as `StrEnum` bootstrap + `register_edge_type()` | Core edges are stable; new ones discovered at runtime |
-| `register_edge()` with in-memory adjacency matrix | Runtime triples merge with bootstrap JSON; no file persistence in A1 |
-| Wildcard `"*"` in edge contract for Chunk | Chunk→EXTRACTED_TO→(any node type) avoids enumerating 11 targets |
 | `validate()` raises `ValueError` on unknown labels | Fail-fast, no silent pass-through |
 | Eager JSON loading at module level | Malformed/missing contract fails at import, not at query time |
-| Two-spawn pattern (data layer separate from logic) | Clean separation; each implementer gets ~150 lines of relevant spec |
+
+### From A2
+
+| Decision | Rationale |
+|----------|-----------|
+| Env-var-driven config (collection name, model, dimensions) | Avoids hardcoded values that change during active development |
+| Payload indexes as separate `create_payload_indexes()` method | Satisfies both §4.1 (indexes exist) and CON-005 (create after first upsert) |
+| UUIDv5 with content hash for chunk IDs | Deterministic IDs enable true idempotent upsert (same content = same UUID) |
+| Mock classifier (keyword heuristics) | deepseek-flash invocation details unclear; mock enables pipeline testing now |
+| Chunker threshold at 2000 chars | Matches §9 examples; ~1000 in REQ-003 was ambiguous |
+| Qdrant client uses Python SDK (`qdrant-client`) | REST API possible but SDK reduces boilerplate; installable via uv |
 
 ---
 
-## 6. What NOT to Do
+## 6. What NOT to Do (project-specific)
 
 - ❌ Write code in the architect agent — always delegate
 - ❌ Use absolute `from src.memory.*` imports — `src/` is not a package
 - ❌ Add `src/__init__.py` — user explicitly rejected this
 - ❌ Use `pip` — venv has no pip, use `uv pip` or `uv`
 - ❌ Spawn agents without environmental context
-- ❌ Give implementers the full 500-line spec — point them to the file, give them task scope
+- ❌ Give implementers the full spec — point them to the file, give them task scope
 - ❌ Proceed to next stage without user approval
+- ❌ Load domain skills just because implementers will need them
+- ❌ Hardcode collection names, model names, or vector dimensions — use env vars
 
 ---
 
-## 7. Next Stage: A2 (Qdrant Ingestion Pipeline)
+## 7. Known Issues / Open Items
 
-Per parent spec `docs/rag-dev/spec.md` §10:
+| Item | Status |
+|------|--------|
+| deepseek-flash invocation | Unclear — classifier is mock. Needs real LLM integration before production use. |
+| REQ-006 UUIDv4 vs §9 UUIDv5 | Spec contradiction. UUIDv5 chosen for idempotency. Update spec §3. |
+| Chunker threshold (~1000 vs 2000) | Spec ambiguity. 2000 chosen. Clarify spec. |
+| A2 acceptance gate testing | Not yet executed. AC-001 through AC-006 pending. |
+| qdrant-client installation | Install via `uv pip install qdrant-client` if venv is rebuilt. |
 
-> **Build**: Qdrant client wrapper, collection creation with payload indexes, nomic-embed-text integration (via Ollama), chunker (semantic boundaries), classifier (deepseek-flash), ingest script.
-> **Do NOT build**: Graph DB integration, entity extraction, session tracking, reingestion logic, `graph_node_id` field.
+---
 
-**The A1 models (enums, edge validator) are now available for import.** Next session should:
+## 8. Next Stage: A3 (Graph DB Integration)
+
+Per parent spec `docs/rag-dev/spec.md` §10 Stage A3:
+
+> **Build**: Abstract `GraphStore` interface (§8). Concrete Memgraph implementation (or placeholder). Entity extractor (deepseek-flash → nodes + edges). Graph ingestion that MERGEs nodes and validates edges against A1 contract.
+> **Do NOT build**: Bidirectional linkage (A4), Chunk reference nodes, session tracking (A5), retrieval queries.
+
+**Files to produce**:
+- `src/memory/graph/interface.py` — GraphStore ABC
+- `src/memory/graph/memgraph.py` — MemgraphGraphStore (or DictGraphStore mock)
+- `src/memory/extractor.py` — extract_entities(text) → (nodes, edges)
+- `scripts/ingest_graph.py` — CLI for graph-only ingestion
+
+Next session should:
 1. Read this handoff file first
-2. Read `docs/rag-dev/spec.md` §10 Stage A2 section
-3. Create `spec/spec-schema-stage-a2-qdrant-pipeline.md`
-4. User approves spec
-5. Spawn implementers for A2 files
+2. Read `docs/context/LEARNINGS.md` for interaction rules
+3. Read `docs/rag-dev/spec.md` §10 Stage A3 section
+4. Create `spec/spec-schema-stage-a3-graph-db.md`
+5. User approves spec
+6. Spawn implementers for A3 files
 
 ---
 
-## 8. Files to Read in Next Session (priority order)
+## 9. Files to Read in Next Session (priority order)
 
 1. **THIS FILE** — `docs/rag-dev/session-handoff.md`
-2. `docs/rag-dev/spec.md` — parent spec, especially §10 Stage A2
-3. `docs/rag-dev/exploration-summary.md` — env docs + existing code context
-4. `spec/spec-schema-stage-a1-core-models.md` — what A1 built (for imports reference)
-5. `docs/context/stack.md` — Qdrant/Ollama host/port details
+2. `docs/context/LEARNINGS.md` — mandatory agent interaction rules
+3. `docs/rag-dev/spec.md` — parent spec, especially §10 Stage A3
+4. `spec/spec-schema-stage-a2-qdrant-pipeline.md` — what A2 built (for imports reference)
+5. `spec/spec-schema-stage-a1-core-models.md` — A1 models (Category, TagDimension, edge validator)
+6. `docs/rag-dev/findings.md` — architecture decisions and research
+7. `docs/context/stack.md` — Qdrant/Ollama host/port details
+8. `docs/context/conventions.md` — import style, testing patterns

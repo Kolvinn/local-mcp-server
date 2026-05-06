@@ -115,6 +115,12 @@
       "skillPath": "skills/pytest-coverage/SKILL.md",
       "computedHash": "06481f4bbc6d80a52091ec9ba5856eb1dc5f80cbabb40fd4ad02aaea3085a0dc"
     },
+    "python-best-practices": {
+      "source": "0xbigboss/claude-code",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/python-best-practices/SKILL.md",
+      "computedHash": "b88ca3b74543fb0b83d9eb675370bd4c849d50f273128a31095702ffb2e1be87"
+    },
     "python-code-review": {
       "source": "existential-birds/beagle",
       "sourceType": "github",
@@ -126,6 +132,12 @@
       "sourceType": "github",
       "skillPath": "awesome_agent_skills/python-expert/SKILL.md",
       "computedHash": "502979957aa63e93b0366d357a241695181c93e739e1bb75b6410505bcc91ba9"
+    },
+    "python-expert-best-practices-code-review": {
+      "source": "wispbit-ai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/python-expert-best-practices-code-review/SKILL.md",
+      "computedHash": "d9acfe21c5b56c6b6cadebd375797deb97f0cc0a0b35cf0a6fa5f37fd03a7b86"
     },
     "python-patterns": {
       "source": "sickn33/antigravity-awesome-skills",

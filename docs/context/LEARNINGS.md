@@ -2,12 +2,14 @@
 
 Language-agnostic. Project-agnostic. Not a summary — a reusable operating manual for agents joining mid-session. Update this file when interaction protocols, failure patterns, or delegation rules change.
 
+**This file is mandatory reading.** Any agent spawning a subagent, loading a skill, writing a spec, or delegating work MUST first check that its action is consistent with the rules below. Violating these rules wastes context, produces broken output, and repeats known failures. If you are unsure whether a rule applies, assume it does.
+
 ---
 
 ## 1. Token Economics
 
 - **The architect's context is the most expensive resource.** Every token spent re-explaining something already in a file is waste.
-- **Write once, point often.** If a spec, decision, or environment detail already exists in a file, tell subagents where to find it. Never paste file contents into a prompt — say "read this file, implement §X through §Y."
+- **Write once, point often.** If a spec, decision, or environment detail already exists in a file, you MUST point subagents to that file rather than pasting its contents into the prompt. Say "read X, implement §Y through §Z."
 - **Spec-first.** Write the spec. Point implementers to the spec file. Give them task scope (which sections, which files to produce). Nothing more.
 
 ## 2. Never Write Code
@@ -37,14 +39,14 @@ This format is reusable across all stages.
 - **Two-spawn pattern works:** data layer (models, enums) separate from logic layer (validators, services). Each spawn gets ~150 lines of relevant spec.
 
 ### Environmental context is mandatory in every spawn
-Agents don't auto-discover venv paths, import conventions, or test commands. Every spawn MUST inject:
+Agents don't auto-discover venv paths, import conventions, or test commands. Every implementer spawn MUST include:
 - Python binary path
 - Test runner command + working directory
 - Import style (relative vs absolute, package boundaries)
 - Package manager details
 - Any relevant host/port/service connectivity
 
-Missing context = wrong imports, broken tests, wasted cycles.
+**Missing context = wrong imports, broken tests, wasted cycles. Do not skip this.**
 
 ### Skill loading must be deliberate
 - Skills inject instructions into agent context. Too many / too verbose = agent gets stuck in parsing loops.
@@ -52,6 +54,21 @@ Missing context = wrong imports, broken tests, wasted cycles.
 - **Add domain skills only when needed:** `qdrant-vector-search` for Qdrant code, `async-python-patterns` for async work
 - **Reference skills load on demand, not baseline:** `qdrant` (REST reference), `qdrant-search-quality` (diagnosis)
 - Load skills before spawning. Know what each skill does to agent context.
+
+### Skill loading: architect vs implementer decision protocol
+
+Only the implementer loads domain implementation skills. The architect must NOT load them preemptively.
+
+**Decision test**: "Do I need this skill's knowledge to make an architectural decision right now?"
+
+| Scenario | Load? | Reason |
+|----------|-------|--------|
+| Writing a spec that touches Qdrant | Maybe — `qdrant-vector-search` if unsure about collection schema or search patterns | Architectural decision |
+| Planning which skills an implementer needs | **No** | That's a list, not a decision — just name the skills in the spawn prompt |
+| Unsure whether a skill covers what's needed | Yes — load and inspect scope | Due diligence before delegating |
+| Implementer will write Qdrant SDK code | **No** — architect does not load it | The implementer loads it in their own context |
+
+**In short**: if a skill is only listed as "what the implementer needs to write code," the architect never loads it. If the architect needs domain knowledge to design the spec, they load it. When in doubt, don't load — the implementer will.
 
 ### Failure recovery
 - If an agent returns empty result: it likely ran out of context or got stuck in a skill loading loop. Respawn with tighter scope and fewer skills.
@@ -89,10 +106,12 @@ Missing context = wrong imports, broken tests, wasted cycles.
 | Implementer builds wrong thing | Spec too vague or too large | Tighten scope, add explicit "Do NOT build" section |
 | Tests fail on import | Wrong PYTHONPATH or import style injected | Verify import rules in spawn context 
 
-## 9. What Never To Do
+## 9. What MUST Never Happen
 
-- Write code in the architect agent
-- Re-explain content that's already in a file
+Violating any of these is a process failure and must be corrected immediately:
+
+- Write code in the architect agent — delegate to an implementer
+- Re-explain content that's already in a file — point to the file
 - Proceed to next stage without user approval
 - Spawn an agent without environmental context
 - Give an implementer more scope than it can hold (~1–3 files, ~150 lines of spec)
@@ -100,3 +119,4 @@ Missing context = wrong imports, broken tests, wasted cycles.
 - Assume agents auto-discover venv, imports, or infrastructure
 - Use absolute imports across package boundaries where relative is the convention
 - Add `__init__.py` files without intentional architectural purpose
+- Load a skill just because an implementer will need it — the implementer loads their own skills
