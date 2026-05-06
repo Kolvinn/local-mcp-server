@@ -2,19 +2,16 @@ services:
 
   mcp-server:
     container_name: mcp-server
-    build:
-      context: ../../
-      dockerfile: ./dev/mcp-server/Dockerfile
-    expose:
-      - 8001
-      #- 6274
-     # - 6277
+    image: mcp-server:uv-latest
+    # build:
+    #   context: ../../
+    #   dockerfile: ./dev/mcp-server/Dockerfile
+
     env_file:
       - ./.env
     user: "1000:1000"
     volumes:
       - mcp-server:/home/dev
-     # - vscode-extensions:/home/dev/.vscode-server/extensions
 
     labels:
       - "traefik.enable=true"
@@ -38,17 +35,12 @@ services:
      # - mcp-net
       - internal-net
     restart: unless-stopped
-    # command:
-    #   >
-    #   sh -c "bunx @modelcontextprotocol/inspector uv --server main.py --config conf.json"
     
 volumes:
   mcp-server:
     name: mcp-server
 
-    
 networks:
-
   internal-net:
     name: internal-net
     external: true
