@@ -99,7 +99,7 @@
           "implementer": "ask",
           "reviewer": "ask",
           "explorer": "ask",
-          "*": "deny"
+          "*": "ask"
         }
       }
     },
