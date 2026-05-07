@@ -1,0 +1,34 @@
+services:
+  init:
+    image: test-image
+    user: "1000:1000"
+    container_name: init
+    volumes:
+      - test-vol:/workspace
+
+  orch:
+    image: test-image
+    user: "1000:1000"
+    container_name: orch
+    depends_on:
+      - init
+
+    volumes:
+      - test-vol:/workspace
+      - agent-vol:/agents/agent1
+
+  agent:
+    user: "1000:1000"
+    image: test-image
+    depends_on:
+      - init
+      - orch
+    volumes:
+      - agent-vol:/workspace
+
+volumes:
+  test-vol:
+    name: test-vol
+    external: true
+  agent-vol:
+

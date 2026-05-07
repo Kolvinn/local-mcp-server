@@ -1,0 +1,37 @@
+# Use a Python image with uv pre-installed
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    git \
+    unzip \
+    sudo \
+    vim \
+    procps \
+    jq yq \
+    tree \
+    ripgrep fd-find  \
+    wget tar jq ripgrep openssh-client \
+    build-essential sqlite3 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Setup a non-root user
+
+# Copy the script into the image
+COPY ./scripts/init-user.sh /tmp/init-user.sh
+
+# Run the script and then remove it to keep the layer clean
+RUN chmod +x /tmp/init-user.sh && \
+    /tmp/init-user.sh && \
+    rm /tmp/init-user.sh
+
+RUN mkdir -p workspace
+RUN mkdir -p agents/agent1/
+RUN chown -R dev:dev workspace
+RUN chown -R dev:dev agents
+
+USER dev
+
+
+CMD ["sleep", "infinity"]

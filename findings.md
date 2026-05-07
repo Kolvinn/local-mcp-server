@@ -47,6 +47,13 @@
 - Qdrant: `qdrant-vector-search`, `qdrant-search-quality`
 - Python: `python-patterns`, `async-python-patterns`, `python-expert`, `pydantic`
 
+### Validated: Orchestrator as Symlink Bridge (test-docker/)
+**Test setup:** Three containers (init, orch, agent) + two Docker volumes (test-vol, agent-vol)
+- Orch mounts both volumes, symlinks files from shared → agent volume
+- Agent writes follow symlink back to shared volume
+- Init confirms changes land in source of truth
+- **Proven:** Zero-copy, zero-host-access, dynamic grants via `ln -s`/`rm`, no container restarts
+
 ### Open Questions (from session-summary.md)
 - Complexity thresholds for deepening
 - Memory Manager implementation (agent vs MCP vs service)

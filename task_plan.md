@@ -1,7 +1,23 @@
 # Task Plan — Agentic Container Overhaul
 
 ## Goal
-Overhaul local Docker setup from a single OpenCode MCP server into a **LangGraph-based multi-container agent system** powered by **Flox environments**. Each agent type is a modifiable template with its own stateflow, learnings, and file access via MCP protocol. Orchestrator routes work; agents don't talk to each other.
+Overhaul local Docker setup from a single OpenCode MCP server into a **LangGraph-based multi-container agent system** powered by **Flox environments**. Each agent type is a modifiable template with its own stateflow, learnings, and filesystem isolation via the orchestrator acting as a symlink bridge between shared and agent-specific Docker volumes.
+
+## Core Architecture (Validated)
+```
+project-vol (shared, source of truth)     agent-vol(s) (isolated per agent)
+┌──────────────────┐                     ┌──────────────────┐
+│ src/             │                     │ /ws/             │
+│ tests/           │     orchestrator    │  src/ ───symlink │
+│ docs/            │◄────mounts both────►│  tests/──symlink │
+│ config/ (hidden) │     creates symlinks│                  │
+└──────────────────┘                     └──────────────────┘
+```
+- **Orchestrator** mounts `project-vol` + all `agent-vol`s, bridges via `ln -s`
+- **Agents** mount only their own `agent-vol`, see only what orch symlinked
+- **Writes** follow symlinks → land in `project-vol` directly
+- **Dynamic grants**: orch adds/removes symlinks (no container restart)
+- **Zero copies, zero host access, zero Docker socket**
 
 ## MVP Agent Roster
 - **Implementer** — spec-driven code translator
@@ -15,20 +31,23 @@ Overhaul local Docker setup from a single OpenCode MCP server into a **LangGraph
 - Qdrant vector store
 - Single user, no auth
 - No npx (bunx only)
+- **Agents never access host** — only Docker volumes
 
 ---
 
 ## Phases
 
-### Phase 1: Architecture Design — Container & Environment
+### Phase 1: Architecture Design — Volume Model & Containers
 **Status:** pending
 
-- Design Flox environment per agent type (implementer, explorer)
-- Define container-per-agent model: one Dockerfile template, parameterized by agent type + injected context
-- Plan Docker Compose layout (orchestrator + N agents on `internal-net`)
-- Define context injection mechanism (env vars, mounted files, startup args)
-- Define file access boundaries per agent (which projects, which directories)
-- **Gate:** User approves architecture diagram + container model
+**Validated foundation** (see test-docker/): orchestrator as symlink bridge
+- Design volume topology: `project-vol` (shared) + per-agent `agent-vol`s
+- Design orchestrator symlink management (grant/revoke file access per task)
+- Define Docker Compose layout (orchestrator + N agents on `internal-net`)
+- Define Flox environment per agent type (implementer, explorer)
+- Define container-per-agent model: one Dockerfile template, parameterized by agent type
+- Define context injection mechanism (env vars, startup args, agent config)
+- **Gate:** User approves volume topology + container model
 
 ### Phase 2: LangGraph State Management
 **Status:** pending
@@ -40,26 +59,19 @@ Overhaul local Docker setup from a single OpenCode MCP server into a **LangGraph
 - **Skills needed:** langgraph-fundamentals, langgraph-persistence, langgraph-human-in-the-loop
 - **Gate:** User approves state management model
 
-### Phase 3: MCP File Access Protocol
+### Phase 3: Orchestrator Agent Design
 **Status:** pending
 
-- Define MCP file access server contract (tools: read_file, write_file, list_directory, search_files)
-- Define per-agent permission boundaries
-- Design how orchestrator grants/revokes file access per task
-- Integrate with existing FastMCP patterns in codebase
-- **Gate:** User approves MCP contract
-
-### Phase 4: Orchestrator Agent Design
-**Status:** pending
-
-- Design orchestrator stateflow (ORIENT → Clarify → Assess → Gather → Synthesize → Gate)
+- Design orchestrator LangGraph stateflow (ORIENT → Clarify → Assess → Gather → Synthesize → Gate)
 - Design delegation logic (which agent, with what scope, with what files)
+- Design symlink management (grant/revoke file access per task — orchestrator runs `ln -s`/`rm`)
 - Design context injection per spawn (environment, import rules, workdir, output format)
+- Design agent communication protocol (task dispatch, result collection, heartbeat)
 - Integrate existing two-tier RAG (light at ORIENT, deep at GATHER)
-- **Skills needed:** multi-agent-orchestration
+- **Skills needed:** langgraph-fundamentals, multi-agent-orchestration
 - **Gate:** User approves orchestrator design
 
-### Phase 5: RAG Integration (Complete paused A3-A6)
+### Phase 4: RAG Integration (Complete paused A3-A6)
 **Status:** pending
 
 - A3: Graph DB integration (Memgraph or DictGraphStore mock)
@@ -70,33 +82,38 @@ Overhaul local Docker setup from a single OpenCode MCP server into a **LangGraph
 - **Skills needed:** langchain-rag, qdrant-vector-search
 - **Gate:** User approves RAG completion plan
 
-### Phase 6: Implementation — Phase 1+2 (Container + State)
+### Phase 5: Implementation — Container + State
 **Status:** pending
 
 - Write Flox env manifests per agent
-- Write Dockerfile template
-- Write docker-compose.yml with orchestrator + agent containers
+- Write Dockerfile template (based on validated test-docker/ pattern)
+- Write docker-compose.yml (project-vol + agent-vols + symlink bridge)
 - Implement LangGraph state graphs per agent
 - Wire LangGraph persistence
 - **Skills needed:** langgraph-fundamentals, langgraph-persistence
-- **Gate:** User approves Phase 6 before Phase 7
+- **Gate:** User approves Phase 5 before Phase 6
 
-### Phase 7: Implementation — Phase 3+4 (MCP + Orchestrator)
+### Phase 6: Implementation — Orchestrator + RAG
 **Status:** pending
 
-- Implement MCP file access server
-- Implement orchestrator LangGraph
-- Wire file access per agent task
-- End-to-end test: user request → orchestrator → agent → file output → orchestrator summary
+- Implement orchestrator LangGraph stateflow
+- Wire symlink management into orchestrator
+- Integrate RAG into GATHER phase
+- End-to-end test: user request → orchestrator → agent → file output
 - **Gate:** User approves working end-to-end
 
-### Phase 8: Polish & Docs
+### Phase 7: Polish & Docs
 **Status:** pending
 
 - Run existing test suite (96 unit tests, 3/8 integration)
 - Fix known issues (collections, PORT, infer parameter)
 - Update docs/context/ with new stack
 - Handoff documentation
+
+### Backlog
+- Filesystem MCP (symlink bridge makes it unnecessary)
+- Expert, Architect, Researcher agents
+- Reviewer agent
 
 ---
 

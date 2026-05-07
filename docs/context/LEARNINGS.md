@@ -88,9 +88,30 @@ Only the implementer loads domain implementation skills. The architect/orchestra
 | Wrong imports in agent output | Environmental context missing from spawn | Inject venv path, import rules, workdir |
 | Architect writes code | Forgetting delegation rule | Delete it, write a spec task instead |
 | Implementer builds wrong thing | Spec too vague or too large | Tighten scope, add explicit "Do NOT build" section |
-| Tests fail on import | Wrong PYTHONPATH or import style injected | Verify import rules in spawn context 
+| Tests fail on import | Wrong PYTHONPATH or import style injected | Verify import rules in spawn context |
+
+## 9. Subagent Type Behavior (Critical)
+
+| Subagent Type | Returns | Where Output Goes |
+|---------------|---------|-------------------|
+| `explorer` | Only `"complete"` or `"error"` | Writes findings to `docs/exploration/` |
+| `general` | Full content inline in response | Inline |
+| `implementer` | Code output | Inline |
+| `reviewer` | Review findings | Inline |
+
+**Always check `docs/exploration/` after spawning an explorer subagent** — the actual findings are in files there, not in the task result. 
 
 ## 9. What MUST Never Happen
+
+## 10. Architecture Design Principle: Test Before You Spec
+
+**Validate theories with minimal experiments before designing architecture around them.** During session 001 (agentic container overhaul), 5 file-access architectures were debated over many turns. The correct answer — orchestrator as symlink bridge between Docker volumes — was discovered in a 30-line `docker-compose.yml` experiment, not through extended theoretical debate.
+
+- **If a design decision hinges on a mechanism you haven't used before**, build the smallest possible test first
+- **30 lines of compose beats 30 minutes of debate**
+- **The user will often test things themselves** — if they do, read what they built and learn from it
+
+## 11. What MUST Never Happen
 
 Violating any of these is a process failure and must be corrected immediately:
 
