@@ -62,3 +62,22 @@
 - Specialist spawn heuristics
 - Light vs deep RAG scope boundaries
 - Goal registration context inheritance
+
+### Agent Prompt Design Philosophy (Session Continuation)
+- **Mechanics, not domain**: Agent prompts define interaction patterns. Domain expertise comes from skills loaded at runtime and files pointed to.
+- **User is Governor**: Universal principle injected into every agent prompt. Permissions bubble up, never assumed.
+- **Context Economy**: All agents mandate conciseness, file-pointing, context saving.
+- **Learnings Recording**: All agents record to `docs/learnings/` after work.
+- **Language-agnostic**: No Python/java assumptions baked into prompts.
+- Target: ~60 lines per prompt, stripped of domain examples and skill catalogs.
+
+### Agent Roster (Updated)
+- **Removed**: Coordinator (legacy duplicate), Reviewer (replaced by Auditor)
+- **Added**: Auditor — 5-check framework (spec compliance, best practices, system integration, adversarial testing, report)
+- **Active**: Orchestrator, System Thinker, Implementer, Auditor, Explorer, RAG Architect
+
+### Phase 1 Design (Proposed, Not Yet Approved)
+- Flox baked into agent Docker image, `flox install` using project toml manifest
+- 3 Docker volumes: `project-vol` (external), `agent-impl-vol`, `agent-expl-vol`
+- Explorer gets read-only mount for enforcement
+- Context injection via JSON config file written by orchestrator

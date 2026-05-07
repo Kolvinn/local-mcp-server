@@ -101,8 +101,6 @@ Only the implementer loads domain implementation skills. The architect/orchestra
 
 **Always check `docs/exploration/` after spawning an explorer subagent** — the actual findings are in files there, not in the task result. 
 
-## 9. What MUST Never Happen
-
 ## 10. Architecture Design Principle: Test Before You Spec
 
 **Validate theories with minimal experiments before designing architecture around them.** During session 001 (agentic container overhaul), 5 file-access architectures were debated over many turns. The correct answer — orchestrator as symlink bridge between Docker volumes — was discovered in a 30-line `docker-compose.yml` experiment, not through extended theoretical debate.
@@ -125,3 +123,25 @@ Violating any of these is a process failure and must be corrected immediately:
 - Use absolute imports across package boundaries where relative is the convention
 - Add `__init__.py` files without intentional architectural purpose
 - Load a skill just because an implementer will need it — the implementer loads their own skills
+
+## 12. Agent Prompt Design: Mechanics, Not Domain
+
+**Agent prompts define interaction mechanics — how the agent thinks and communicates. Domain expertise comes from skills loaded at runtime and files pointed to, not baked into the prompt.**
+
+### Prompt principles
+- Every agent prompt includes the **Mandatory Principles** block: User Is Governor, Context Economy, Learnings Recording
+- Prompts must be **language-agnostic** and **project-agnostic** — an Implementer prompt works for Python or Java
+- **No baked-in skill lists** — the Orchestrator specifies which skills to load per spawn
+- **No baked-in domain examples** — pseudocode format belongs in `agent-pseudocode` skill, not the System Thinker prompt
+- **No "load X by default"** — violates the generic template model (removed from Implementer: "Load python-expert")
+- Target: **~60 lines per prompt** — mechanics only, no knowledge
+
+### User Is Governor (universal)
+- All agents are helpers with designations. The user governs the system.
+- **Never do anything you are not sure the user would approve of.** Bubble uncertainty up.
+- Permissions flow upward through the Orchestrator to the user. Never assumed downward.
+
+### Learnings Recording (universal)
+- Every agent records learnings to `docs/learnings/{domain}/{session}.md` after completing work
+- Records: task, key decisions, assumptions, uncertainties, self-assessment
+- Enables future agent instances to build on prior analysis

@@ -7,105 +7,54 @@
     }
   },
   "agent": {
-    "rag_architect": {
-      "description": "An expert-level system designer specialized in Retrieval-Augmented Generation (RAG) architectures. Operates with high precision, token efficiency, and a focus on objective goal alignment.",
-      "mode": "primary",
-      "model": "opencode-go/deepseek-v4-pro",
-      "prompt": "{file:./prompts/rag_architect.md}",
-      "permission": {
-        "bash": {
-          "head *": "allow",
-          "wc *": "allow",
-          "cat *": "allow",
-          "git status": "allow",
-          "git diff *": "allow",
-          "git log *": "allow",
-          "*": "ask"
-        },
-        "read": "ask",
-        "write": {
-          "docs/project_notes/*": "ask",
-          "docs/ratings/*": "ask",
-          "*": "ask"
-        },
-        "webfetch": "ask",
-        "websearch": "ask",
-        "task": {
-          "system_thinker": "ask",
-          "implementer": "ask",
-          "reviewer": "ask",
-          "explorer": "ask",
-          "*": "ask"
-        }
-      }
-    },
-    "coordinator": {
-      "description": "Orchestrator — Sole user contact. Owns goals, workflow direction, delegation, and approval gates. Never designs, codes, explores, or reviews. Spawns System Thinker (design), Implementer (code), Reviewer (verify), Explorer (scout).",
-      "mode": "primary",
-      "model": "opencode-go/deepseek-v4-pro",
-      "prompt": "{file:./prompts/coordinator.md}",
-      "permission": {
-        "bash": {
-          "head *": "allow",
-          "wc *": "allow",
-          "cat *": "allow",
-          "git status": "allow",
-          "git diff *": "allow",
-          "git log *": "allow",
-          "*": "ask"
-        },
-        "read": "ask",
-        "write": {
-          "docs/project_notes/*": "ask",
-          "docs/ratings/*": "ask",
-          "*": "ask"
-        },
-        "webfetch": "ask",
-        "websearch": "ask",
-        "task": {
-          "system_thinker": "ask",
-          "implementer": "ask",
-          "reviewer": "ask",
-          "explorer": "ask",
-          "*": "ask"
-        }
-      }
-    },
     "orchestrator": {
-      "description": "Orchestrator — Sole user contact. Owns goals, workflow direction, delegation, and approval gates. Never designs, codes, explores, or reviews. Spawns System Thinker (design), Implementer (code), Reviewer (verify), Explorer (scout).",
+      "description": "Orchestrator — Sole user contact. Owns goals, workflow direction, delegation, and approval gates. Never designs, codes, explores, or verifies. Spawns System Thinker (design), Implementer (code), Auditor (verify), Explorer (scout).",
       "mode": "primary",
       "model": "opencode-go/deepseek-v4-pro",
       "prompt": "{file:./prompts/orchestrator.md}",
       "permission": {
         "bash": {
-          "head *": "allow",
-          "wc *": "allow",
-          "cat *": "allow",
           "git status": "allow",
           "git diff *": "allow",
           "git log *": "allow",
+          "bunx skills *": "allow",
+          "tree *": "allow",
+          "curl *": "allow",
+          "cat *": "allow",
+          "head *": "allow",
+          "wc *": "allow",
           "*": "ask"
         },
         "read": "ask",
         "write": {
           "docs/project_notes/*": "ask",
-          "docs/ratings/*": "ask",
+          "docs/plans/*": "ask",
+          "docs/context/*": "ask",
+          "docs/learnings/*": "ask",
+          ".opencode/prompts/*": "ask",
+          "SESSION_HANDOFF.md": "ask",
+          "task_plan.md": "ask",
+          "progress.md": "ask",
+          "findings.md": "ask",
           "*": "ask"
         },
         "webfetch": "ask",
         "websearch": "ask",
+        "glob": "allow",
+        "skill": "ask",
         "task": {
-          "system_thinker": "ask",
-          "implementer": "ask",
-          "reviewer": "ask",
-          "explorer": "ask",
+          "system_thinker": "allow",
+          "implementer": "allow",
+          "auditor": "allow",
+          "explorer": "allow",
+          "general": "allow",
           "*": "ask"
         }
       }
     },
     "system_thinker": {
       "description": "System Thinker — Spawnable template for domain design. Loads skills per delegation. Produces design options (wide) and pseudocode specs (deep). Records learnings. Never writes production code or talks to users.",
-      "mode": "all",
+      "mode": "subagent",
       "model": "opencode-go/kimi-k2.5",
       "prompt": "{file:./prompts/system_thinker.md}",
       "permission": {
@@ -128,8 +77,10 @@
           "*": "deny"
         },
         "glob": "allow",
+        "grep": "allow",
         "webfetch": "deny",
         "websearch": "deny",
+        "edit": "deny",
         "task": {
           "explorer": "allow",
           "*": "deny"
@@ -137,16 +88,12 @@
       }
     },
     "implementer": {
-      "description": "Implementer — Code translator. Reads approved pseudocode specs, writes production code, runs tests. Translates, does not design.",
+      "description": "Implementer — Code translator. Reads approved pseudocode specs, writes production code. Translates, does not design. Language-agnostic — skills loaded per task. Code goes to Auditor for verification.",
       "mode": "subagent",
       "model": "opencode-go/deepseek-v4-flash",
       "prompt": "{file:./prompts/implementer.md}",
       "permission": {
         "bash": {
-          "python3 *": "allow",
-          "pip *": "allow",
-          "pytest *": "allow",
-          "uv *": "allow",
           "git status": "allow",
           "git diff *": "allow",
           "rg *": "allow",
@@ -156,41 +103,49 @@
           "head *": "allow",
           "*": "ask"
         },
-        "webfetch": "deny",
-        "websearch": "deny"
-      }
-    },
-    "reviewer": {
-      "description": "Reviewer — Read-only code verification. Compares implementation to pseudocode spec. Priority-based findings: Blocker, Major, Minor, Suggestion.",
-      "mode": "subagent",
-      "model": "opencode-go/kimi-k2.5",
-      "prompt": "{file:./prompts/reviewer.md}",
-      "permission": {
-        "bash": {
-          "rg *": "allow",
-          "git diff *": "allow",
-          "git log *": "allow",
-          "git show *": "allow",
-          "find * -type f*": "allow",
-          "wc *": "allow",
-          "pytest *": "allow",
-          "cat *": "allow",
-          "head *": "allow",
-          "*": "deny"
-        },
-        "edit": "deny",
-        "write": {
-          "docs/reviews/*": "allow",
-          "*": "deny"
-        },
+        "read": "allow",
+        "write": "ask",
+        "edit": "ask",
         "webfetch": "deny",
         "websearch": "deny",
         "glob": "allow",
         "grep": "allow",
-        "read": "allow",
-        "task": {
+        "task": "deny"
+      }
+    },
+    "auditor": {
+      "description": "Auditor — Code audit & verification specialist. Examines code across 5 dimensions: spec compliance, best practices, system integration, adversarial testing, and produces structured findings. Never fixes code. Language-agnostic.",
+      "mode": "subagent",
+      "model": "opencode-go/kimi-k2.5",
+      "prompt": "{file:./prompts/auditor.md}",
+      "permission": {
+        "bash": {
+          "pytest *": "allow",
+          "python *": "ask",
+          "rg *": "allow",
+          "grep *": "allow",
+          "find *": "allow",
+          "cat *": "allow",
+          "head *": "allow",
+          "wc *": "allow",
+          "git diff *": "allow",
+          "git log *": "allow",
+          "git show *": "allow",
+          "git status": "allow",
           "*": "deny"
-        }
+        },
+        "read": "allow",
+        "write": {
+          "docs/learnings/*": "allow",
+          "src/tests/*": "ask",
+          "*": "deny"
+        },
+        "edit": "deny",
+        "glob": "allow",
+        "grep": "allow",
+        "webfetch": "deny",
+        "websearch": "deny",
+        "task": "deny"
       }
     },
     "explorer": {
@@ -221,8 +176,38 @@
           "*": "deny"
         },
         "edit": "deny",
+        "task": "deny"
+      }
+    },
+    "rag_architect": {
+      "description": "An expert-level system designer specialized in Retrieval-Augmented Generation (RAG) architectures. Operates with high precision, token efficiency, and a focus on objective goal alignment.",
+      "mode": "primary",
+      "model": "opencode-go/deepseek-v4-pro",
+      "prompt": "{file:./prompts/rag_architect.md}",
+      "permission": {
+        "bash": {
+          "head *": "allow",
+          "wc *": "allow",
+          "cat *": "allow",
+          "git status": "allow",
+          "git diff *": "allow",
+          "git log *": "allow",
+          "*": "ask"
+        },
+        "read": "ask",
+        "write": {
+          "docs/project_notes/*": "ask",
+          "docs/ratings/*": "ask",
+          "*": "ask"
+        },
+        "webfetch": "ask",
+        "websearch": "ask",
         "task": {
-          "*": "deny"
+          "system_thinker": "ask",
+          "implementer": "ask",
+          "auditor": "ask",
+          "explorer": "ask",
+          "*": "ask"
         }
       }
     }

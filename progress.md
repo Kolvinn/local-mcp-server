@@ -26,5 +26,17 @@
 3. Begin Phase 1 design: volume topology + container model
 
 ### Handoff
-- `SESSION_HANDOFF.md` created — comprehensive session log
-- `docs/context/LEARNINGS.md` updated — 3 additions (over-reading rule, subagent behavior, test-before-spec)
+- `SESSION_HANDOFF.md` updated — session continuation recorded
+- `docs/context/LEARNINGS.md` updated — §12 Agent Prompt Design added
+
+### Session Continuation (Same Session)
+- Skills loaded: `langgraph-fundamentals`, `langchain-architecture` — ✅
+- Phase 1 design proposed (volume topology, container model, Flox, symlink bridge) — ✅
+- Agent prompts redesigned (mechanics-not-domain philosophy) — ✅
+  - `auditor.md` created (5-check framework, 96 lines)
+  - `system_thinker.md` rewritten (127→89 lines)
+  - `implementer.md` rewritten (removed domain assumptions, 84→87 lines)
+  - `orchestrator.md` updated (consolidated principles, mandatory block)
+- `opencode.jsonc` updated (removed coordinator/reviewer, added auditor, tightened permissions) — ✅
+- Flox integration confirmed: baked into agent image, uses project toml manifest — ✅
+- **Next**: Awaiting user approval on Phase 1 design, then delegate to System Thinker for formal spec

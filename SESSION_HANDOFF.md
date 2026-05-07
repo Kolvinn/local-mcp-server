@@ -1,7 +1,7 @@
-# SESSION HANDOFF — Agentic Container Overhaul (Session 001)
+# SESSION HANDOFF — Agentic Container Overhaul (Session 001, continued)
 
 **Date:** 2026-05-07
-**Status:** Architecture validated. Phase 1 design ready to begin.
+**Status:** Architecture validated. Phase 1 design proposed. Agent prompts redesigned. Config updated.
 **Handoff to:** Next agent (orchestrator continuation) or human review.
 
 ---
@@ -265,3 +265,62 @@ The `explorer` subagent type returns only `"complete"` or `"error"` — actual f
 | `docs/exploration/plans-summary.md` | Created (explorer agent) |
 | `docs/docker/volumes.md` | Read (user-added prior) |
 | `docs/docker/research-v1.txt` | Read (user-added prior) |
+
+---
+
+## 13. Session Continuation (Same Session) — Agent Prompt & Config Overhaul
+
+### Agent Roster Change
+- **Reviewer → Auditor**: Replaced single-dimension code review with 5-check audit framework (spec compliance, best practices, system integration, adversarial testing, report)
+- **Coordinator removed**: Redundant with orchestrator (same prompt now, was a legacy duplicate)
+- **MVP agents now**: Orchestrator, System Thinker, Implementer, Auditor, Explorer (+ RAG Architect as specialized primary)
+
+### Prompt Design Philosophy Established
+All agent prompts rewritten following a single principle: **define interaction mechanics, not domain knowledge.**
+
+| Principle | Meaning |
+|-----------|---------|
+| **Mechanics, not domain** | Prompt = how the agent thinks/communicates. Domain expertise = skills loaded at runtime + files pointed to |
+| **User is Governor** | Every agent prompt starts with this. Permissions bubble up. Never assume approval. |
+| **Context Economy** | All prompts mandate conciseness, point-to-files, save context |
+| **Learnings Recording** | All agents record to `docs/learnings/` after completing work |
+| **Language-agnostic** | No Python-specific loads baked in. Orchestrator specifies skills per spawn. |
+| **~60-line target** | Stripped pseudocode examples, skill catalogs, domain templates from prompts |
+
+### Files Changed This Continuation
+
+| File | Action | Details |
+|------|--------|---------|
+| `.opencode/prompts/auditor.md` | **Created** | New 5-check audit agent (96 lines) |
+| `.opencode/prompts/system_thinker.md` | **Rewritten** | 127→89 lines. Removed domain content, added mandatory principles. Reviewer→Auditor. |
+| `.opencode/prompts/implementer.md` | **Rewritten** | 84→87 lines. Removed `python-expert` auto-load, removed self-testing, added mandatory principles. |
+| `.opencode/prompts/orchestrator.md` | **Updated** | Consolidated principles, added mandatory block, updated anti-scope, Reviewer→Auditor. |
+| `.opencode/opencode.jsonc` | **Rewritten** | Removed coordinator & reviewer. Added auditor with tight permissions (pytest,rg,read-only). Updated all descriptions. All task lists updated (Reviewer→Auditor). |
+| `docs/context/LEARNINGS.md` | **Updated** | Added §12: Agent Prompt Design: Mechanics Not Domain. Fixed duplicate §9. |
+
+### Skills Searched (No New Installs)
+- Docker architecture/file-structure skills: nothing strong (>500 installs). Skipped.
+- Docker compose orchestration: `manutej/...@docker-compose-orchestration` (1.3K) — flagged, not loaded.
+- Code audit/security/adversarial: nothing strong. Local skills (`python-code-review`, `pytest`) sufficient for Auditor.
+
+### Phase 1 Design Status
+Phase 1 design was **proposed** (not yet finalized):
+- 3 volumes: `project-vol` (external), `agent-impl-vol`, `agent-expl-vol`
+- Docker compose: orchestrator + implementer + explorer on internal-net
+- Symlink bridge: orch mounts all volumes, creates symlinks per task
+- Dockerfile template: based on validated `test-docker/Dockerfile.basetest`
+- **Flox confirmed**: baked into agent image, `flox install` using project toml manifest
+- Explorer gets read-only mount (enforces "scout" role at filesystem level)
+- Context injection: JSON config file written by orch into agent volume
+- **Awaiting user approval** before delegating formal spec to System Thinker
+
+### Open Questions
+- Flox: toml manifest location/structure TBD
+- Auditor check #3 (system integration): needs dependency map file — Explorer-generated or RAG-backed later
+- Agent communication protocol (Phase 3): how orch dispatches tasks, collects results
+
+### Exact Next Steps
+1. **User reviews Phase 1 design** — approve, modify, or reject
+2. **User reviews prompts** — final check on auditor, implementer, system_thinker
+3. **After approval**: delegate Phase 1 formal spec to System Thinker
+4. **After Phase 1 gate**: Phase 2 (LangGraph state management per agent)
