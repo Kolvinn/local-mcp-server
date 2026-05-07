@@ -8,56 +8,46 @@ Language-agnostic. Project-agnostic. Not a summary — a reusable operating manu
 
 ## 1. Token Economics
 
-- **The architect's context is the most expensive resource.** Every token spent re-explaining something already in a file is waste.
+- **The orchestrator's context is the most expensive resource.** Every token spent re-explaining something already in a file is waste.
 - **Write once, point often.** If a spec, decision, or environment detail already exists in a file, you MUST point subagents to that file rather than pasting its contents into the prompt. Say "read X, implement §Y through §Z."
-- **Spec-first.** Write the spec. Point implementers to the spec file. Give them task scope (which sections, which files to produce). Nothing more.
+- **Ask first.** The user knows more than you about the projects and goals, ask them about it. Be inquisitive, but be professional and ask to delegate when you've gathered the contexed required to do so
+- **Only read what's required or approved.** Context files (docs/context/) are mandatory at session start. Everything else (Dockerfiles, configs, source code) needs explicit permission or a clear reason tied to immediate decision-making. Over-reading wastes context and violates protocol.
 
 ## 2. Never Write Code
 
-- The architect agent defines WHAT and WHY. Never HOW.
+- The orchestrator agent defines WHAT and WHY. Never HOW.
 - Even trivial fixes (import paths, typos) go to an implementer.
 - If you catch yourself typing code, stop. That's a task for an implementer.
 - The spec is the contract. Implementers translate it. Architects don't micro-manage implementation details.
 
-## 3. Spec Stage Template
 
-Every implementation stage spec must include exactly four sections:
-
-| Section | Purpose |
-|---------|---------|
-| **Build** | What files to produce, what each file does |
-| **Do NOT build** | Explicit scope boundary — prevents scope creep |
-| **Acceptance gate** | Concrete, testable criteria (e.g., "pytest passes 5 specific assertions") |
-| **Notes for implementer** | Environment details, gotchas, decisions they need but shouldn't design |
-
-This format is reusable across all stages.
-
-## 4. Delegation Rules
+## 3. Delegation Rules
 
 ### Scope
-- **One implementer handles 1–3 tightly related files.** Never dump a 500-line spec on one agent.
+- **One implementer handles 1–3 tightly related files.** Never dump a 500-line spec on one agent. Do not rewrite what already exists, point the agent toward it instead. Fill only nuance and context not written.
+- **Explorers and the user are your context friend.** user them.
 - **Two-spawn pattern works:** data layer (models, enums) separate from logic layer (validators, services). Each spawn gets ~150 lines of relevant spec.
+- **Inject failure propagation protocol:** If you fail, or can't do something don't flounder - ask the user. Tell the sub agents that as well. They should say if something has gone wrong, or what they need to do their job.
 
 ### Environmental context is mandatory in every spawn
-Agents don't auto-discover venv paths, import conventions, or test commands. Every implementer spawn MUST include:
-- Python binary path
-- Test runner command + working directory
-- Import style (relative vs absolute, package boundaries)
+Agents don't auto-discover venv paths, import conventions, or test commands. Every sub agent spawn MUST include environmental context relative to their instructed goal. Such as:
+- Python binary path (implementer)
+- Test runner command + working directory (tester)
+- Import style (relative vs absolute, package boundaries) (implementer)
 - Package manager details
 - Any relevant host/port/service connectivity
+- Output format summaries (ALL)
 
 **Missing context = wrong imports, broken tests, wasted cycles. Do not skip this.**
 
 ### Skill loading must be deliberate
-- Skills inject instructions into agent context. Too many / too verbose = agent gets stuck in parsing loops.
-- **Baseline skills** for any Python implementer: `python-expert`, `python-type-safety`
-- **Add domain skills only when needed:** `qdrant-vector-search` for Qdrant code, `async-python-patterns` for async work
-- **Reference skills load on demand, not baseline:** `qdrant` (REST reference), `qdrant-search-quality` (diagnosis)
-- Load skills before spawning. Know what each skill does to agent context.
+- Skills inject instructions into agent context. Tell them to load what they need for the job.
+- use `bunx skills list` to list the current installed skilled
+- use the skill `find_skill` to search for other skills for sub agents if they require. As usual - ASK THE USER
 
-### Skill loading: architect vs implementer decision protocol
+### Skill loading EXAMPLE: orchestrator vs implementer decision protocol
 
-Only the implementer loads domain implementation skills. The architect must NOT load them preemptively.
+Only the implementer loads domain implementation skills. The architect/orchestrator must NOT load them preemptively.
 
 **Decision test**: "Do I need this skill's knowledge to make an architectural decision right now?"
 
@@ -68,11 +58,8 @@ Only the implementer loads domain implementation skills. The architect must NOT 
 | Unsure whether a skill covers what's needed | Yes — load and inspect scope | Due diligence before delegating |
 | Implementer will write Qdrant SDK code | **No** — architect does not load it | The implementer loads it in their own context |
 
-**In short**: if a skill is only listed as "what the implementer needs to write code," the architect never loads it. If the architect needs domain knowledge to design the spec, they load it. When in doubt, don't load — the implementer will.
+**In short**: if a skill is only listed as "what the implementer needs to write code," the architect/orchestrator never loads it. If the architect needs domain knowledge to design the spec, they load it. When in doubt, don't load — the implementer will.
 
-### Failure recovery
-- If an agent returns empty result: it likely ran out of context or got stuck in a skill loading loop. Respawn with tighter scope and fewer skills.
-- If wrong imports appear in output: environmental context was missing or wrong. Re-spawn with corrected context.
 
 ## 5. Stage Gates
 
@@ -84,9 +71,6 @@ Only the implementer loads domain implementation skills. The architect must NOT 
 ## 6. File Hygiene & Handoffs
 
 - **LEARNINGS.md** (this file) — meta-level interaction rules. Language/project agnostic.
-- **session-handoff.md** — project-specific state (what was built, what's next, environment quirks). Read first in every new session.
-- **Specs** live in a `spec/` directory. Use a consistent naming convention: `spec-[purpose]-[description].md`.
-- **Findings/decisions** live in a `docs/<project>/findings.md` or similar. Keep separate from interaction rules.
 - **Agents write full output to files, pass summaries back to the caller.** Keeps architect context lean.
 - **File-based handoffs between sessions** — never assume the next session has in-context memory of what happened.
 

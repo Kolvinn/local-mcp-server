@@ -89,6 +89,31 @@ def mount_proxies(mcp: FastMCP):
             }
         )
         mcp.mount(mem_proxy, namespace="")
+        
+    except Exception as e:
+        print(f"Failed to mount Memory Server: {e}")
+
+     # 2. Mount Memory Server (with persistence fix)
+    try:
+        firecrawl = create_proxy(
+            {
+                {
+  "mcpServers": {
+    "firecrawl-mcp": {
+      "command": "npx",
+      "args": ["-y", "firecrawl-mcp"],
+      "env": {
+        "FIRECRAWL_API_KEY": "your-self-hosted-key",
+        "FIRECRAWL_API_URL": "http://localhost:3000"
+      }
+    }
+  }
+}
+
+            }
+        )
+        mcp.mount(mem_proxy, namespace="")
+        
     except Exception as e:
         print(f"Failed to mount Memory Server: {e}")
 
