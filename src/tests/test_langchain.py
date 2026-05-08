@@ -9,16 +9,21 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.utils.uuid import uuid7
 from langgraph.types import Command
 
-from langchain.agents import create_react_agent
-
+#from langchain.agents import create_react_agent
+import os
 # Create config with thread_id for state persistence
 config = {"configurable": {"thread_id": str(uuid7())}}
 
-model = ChatOpenAI(
-    base_url="https://opencode.ai/zen/go/v1",
-    api_key="",
-    model="deepseek-v4-flash",
-    reasoning_effort="low"
+#from langchain.agents import create_react_agent
+from langchain_litellm import ChatLiteLLM
+from langchain_litellm import ChatLiteLLMRouter
+
+LITE_LLM_URL = os.getenv("LITE_LLM_URL","http://litellm:4000")
+LITE_LLM_API_KEY = os.getenv("LITE_LLM_API_KEY","sk-12342134123412341234")
+model = ChatLiteLLM(
+    api_base=LITE_LLM_URL,
+    api_key=LITE_LLM_API_KEY,
+    model="llama3.1"
 )
 @tool
 def print_hello() -> str:
@@ -83,38 +88,7 @@ msgs2 = {"messages": [{"role": "user", "content": "do 2 things. one. say hi - th
 
 
 
-for chunk in agent.stream(
-    msgs2,
-    stream_mode="messages",
-    config=config,
-    version="v2",
-):
-    if chunk["type"] == "messages":
-        token, metadata = chunk["data"]
-
-        # Identify source: "main" or the subagent namespace segment
-        is_subagent = any(s.startswith("tools:") for s in chunk["ns"])
-        source = next((s for s in chunk["ns"] if s.startswith("tools:")), "main") if is_subagent else "main"
-
-        # Tool call chunks (streaming tool invocations)
-        if token.tool_call_chunks:
-            for tc in token.tool_call_chunks:
-                if tc.get("name"):
-                    print(f"\n[{source}] Tool call: {tc['name']}")
-                # Args stream in chunks - write them incrementally
-                if tc.get("args"):
-                    print(tc["args"], end="", flush=True)
-
-        # Tool results
-        if token.type == "tool":
-            print(f"\n[{source}] Tool result [{token.name}]: {str(token.content)[:150]}")
-
-        # Regular AI content (skip tool call messages)
-        if token.type == "ai" and token.content and not token.tool_call_chunks:
-            print(token.content, end="", flush=True)
-
-print()
-
+print(agent.invoke(msgs2,config=config))
 
 # The user starts a new question
 # turn = 2
