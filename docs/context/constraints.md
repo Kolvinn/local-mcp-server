@@ -22,7 +22,7 @@
 - Environment variables for all configuration
 - No command injection vectors
 - No eval() or exec() on user/agent input
-- Read-only agents: explorer, reviewer
+- Read-only agents: explorer (always), auditor (code review only, no edits to source)
 
 ## Compatibility
 - Python 3.14+

@@ -35,6 +35,10 @@
 - Single user access — no auth middleware
 
 ## Communication
-- Agents write full output to files, pass summaries
+- Agents write full output to files, return 2-3 bullet summaries to orchestrator
+- Orchestrator never reads full content of briefs, specs, or code — summaries + file paths only
 - docs/context/ is single source of truth for project specifics
 - docs/project_notes/ for institutional memory (ADRs, bugs, issues)
+- File-based handoff: Thinkers → docs/briefs/, Architect Thinkers → docs/specs/, Implementers → source code, Auditors → inline findings, Explorers → docs/exploration/
+- After every agent completion, orchestrator bubbles up to user (no autonomous pipelines)
+- See `docs/plans/overhaul/agent-variation-matrix.md` §4 for full read/write boundary table

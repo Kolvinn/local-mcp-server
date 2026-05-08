@@ -1,8 +1,8 @@
-# SESSION HANDOFF — Agentic Container Overhaul (Session 001, continued)
+# SESSION HANDOFF — Agentic Container Overhaul (Session 002)
 
-**Date:** 2026-05-07
-**Status:** Architecture validated. Phase 1 design proposed. Agent prompts redesigned. Config updated.
-**Handoff to:** Next agent (orchestrator continuation) or human review.
+**Date:** 2026-05-08
+**Status:** Phase 1 (Agent Design) complete. Phase 2 (Container & Volume Topology) next.
+**Handoff to:** Next orchestrator session or human review.
 
 ---
 
@@ -10,31 +10,58 @@
 
 Overhaul the local Docker setup from a single OpenCode MCP server into a **LangGraph-based multi-container agent system** powered by **Flox environments**.
 
-- Each agent type = a modifiable template that adapts to injected context (e.g., Python implementer vs Java implementer)
+- Each agent type = generic template with config-driven variations (model + skills + context injection)
+- Prompts define interaction mechanics, never domain knowledge
 - LangGraph for per-agent state management and the orchestrator's decision flow
 - Flox per container for hermetic, reproducible environments
-- MVP agent roster: **Implementer** + **Explorer** (Expert, Architect, Researcher, Reviewer are backlog)
-- Agents **never communicate directly** — they write files or return summaries to orchestrator
+- **Core 5 types**: Orchestrator, System Thinker, Implementer, Auditor, Explorer
+- **9 variations**: strategic_thinker, rag_thinker, architect_thinker, python_implementer, infra_implementer, code_auditor, codebase_explorer, dependency_explorer, + Orchestrator (no variation)
+- Agents **never communicate directly** — orchestrator routes via file-based handoffs
 - Agents **never access the host** — filesystem isolation via Docker volumes only
-- User controls infrastructure, switches between projects, handles git
+- Orchestrator **never reads full content** — summaries + file paths only, bubbles to user after every agent
 
 ---
 
-## 2. Current System State (What Exists)
+## 2. What Changed This Session
+
+### Agent Variation Framework (Solidified)
+- RAG Architect absorbed into System Thinker as `rag_thinker` variation
+- Architect is System Thinker variation (`architect_thinker`), not a separate type
+- Code Auditor + Integration Auditor merged (context differentiates, not separate type)
+- Model assignments: GLM-5.1 (orch), Qwen 3.6 Plus (thinker), DeepSeek V4 Flash (impl/expl), DeepSeek V4 Pro (auditor)
+- File-based handoff protocol defined with read/write boundaries per agent type
+- Each agent reads only what it needs: Thinkers never see source code, Implementers never see briefs, Auditors never see briefs
+
+### Files Modified
+| File | Action |
+|------|--------|
+| `.opencode/prompts/orchestrator.md` | Updated — Variation Framework, Handoff Protocol, Read/Write table |
+| `.opencode/prompts/system_thinker.md` | Updated — Read/Write Boundaries, brief consumption, expanded anti-scope |
+| `.opencode/prompts/implementer.md` | Updated — Read/Write Boundaries, "Never read briefs" |
+| `.opencode/prompts/auditor.md` | Updated — Read/Write Boundaries, "Never read briefs" |
+| `.opencode/prompts/explorer.md` | Updated — Mandatory Principles added, Read/Write Boundaries |
+| `.opencode/prompts/reviewer.md` | DELETED — absorbed into Auditor |
+| `.opencode/prompts/coordinator.md` | DELETED — redundant with Orchestrator |
+| `.opencode/prompts/rag_architect.md` | DELETED — absorbed into System Thinker |
+| `.opencode/opencode.jsonc` | Updated — models, removed rag_architect, variation names in descriptions |
+| `docs/plans/overhaul/agent-variation-matrix.md` | CREATED — full variation table, flow, rationale |
+| `docs/context/LEARNINGS.md` | Updated — §13, §14, §15 added |
+| `docs/plans/overhaul/task_plan.md` | Updated — new phases, variation framework section |
+| `docs/plans/overhaul/findings.md` | Updated — roster, variation framework, model rationale |
+| `docs/plans/overhaul/progress.md` | Updated — Session 002 log |
+
+---
+
+## 3. Current System State (What Exists)
 
 ### Working
 - **FastMCP server**: 5 memory tools (add/search/delete/sync/list) on port 8000
-- **Agent team v2 designed**: 5 agents (Orchestrator, System Thinker, Implementer, Reviewer, Explorer) with pseudocode handoff, 4-gate approval pipeline
+- **Agent team v2 designed**: 5 core types + 9 config-driven variations
 - **mcp-mem0-update**: Fully complete (goal tree migration, 96 unit tests passing)
 - **RAG pipeline A1+A2**: Pydantic models, edge contract (40 triples, 10 node types), chunker, embedder, Qdrant client — 82 tests pass
-- **Diagrams**: Full orchestrator flow modeled (ORIENT→Clarify→Assess→Gather→Synthesize→Gate), two-tier RAG, anti-pattern guard nodes
-
-### Diagrams Modeled (docs/diagrams/)
-- `orchestrator-overview-v1.mmd` / `v2.mmd` — 5-phase + ORIENT phase 0
-- `orchestrator-sequence-v1.mmd` — temporal agent interactions
-- `orchestrator-thinking-loop.mmd` / `v2.mmd` — drill-down thinking + Memory Manager companion
-- `loopold.mmd` — earlier iteration with anti-pattern guards
-- See `docs/exploration/diagrams-summary.md` for summary
+- **Agent prompts**: All 5 core prompts updated with Variation Framework, Read/Write Boundaries, Mandatory Principles
+- **opencode.jsonc**: Models updated, rag_architect removed, variation names in descriptions
+- **Symlink bridge validation**: test-docker/ proof of concept working
 
 ### Known Issues (from docs/project_notes/)
 - Qdrant collections stale (1536-dim), need recreation at 768-dim
@@ -43,55 +70,6 @@ Overhaul the local Docker setup from a single OpenCode MCP server into a **LangG
 - Integration tests: 3/8 pass, 5 fail
 - RAG paused at A3 (Graph DB integration — zero code, spec written)
 - `infer` parameter not yet implemented
-
----
-
-## 3. Architecture Evolution (The Full Debate)
-
-### Starting Point
-User wanted agents in Docker with filesystem isolation, no host access. Initial assumption: MCP file share server as the gatekeeper.
-
-### 5 Approaches Debated
-
-| Option | Mechanism | Rejected Because |
-|--------|-----------|------------------|
-| **A: MCP Gateway** | MCP file share server mounts host, agents call it for every read/write | Perpetual MCP latency on every file op |
-| **B: Host Orchestrator** | Orch runs as host process, agents as containers | Loses containerization for orchestrator |
-| **C: Static Bind + MCP** | Agents get ro bind mounts, MCP for writes | Two-tier model, static at boot |
-| **D: Bind Mount Copy** | Orch copies files into agent workspace dirs | Copies don't scale for large repos |
-| **Docker volume-subpath** | Named volume + per-agent subpath slices | Container restart needed to grant new subpaths |
-| **OverlayFS** | Kernel overlay, writes to per-agent layer | Needs CAP_SYS_ADMIN, full visibility |
-
-### Breakthrough: Symlink Bridge (VALIDATED)
-
-User tested in `test-docker/`:
-- **Shared volume** (`test-vol`): contains project files
-- **Agent volume** (`agent-vol`): isolated per-agent
-- **Orchestrator mounts BOTH** and creates symlinks from shared → agent volume
-- Agent edits follow symlink → changes land directly in shared volume
-- Init container confirms changes propagate
-
-**This means:**
-```
-project-vol (shared)      orch bridges both       agent-vol (isolated)
-┌──────────────┐          ┌──────────────┐        ┌──────────────┐
-│ src/         │──────────│ /project/src/ │──ln -s─│ /ws/src/     │
-│ tests/       │          │ /agents/a1/   │        │ /ws/tests/   │
-│ docs/        │          │   src/ ───────┼──ln -s─│              │
-│ config/      │ (hidden) │   tests/ ─────┼──ln -s─│              │
-└──────────────┘          └──────────────┘        └──────────────┘
-```
-
-**Properties:**
-- **Zero copies** — symlink IS the same inode
-- **Zero host access** — agents only mount their own Docker volume
-- **Zero Docker socket** — no `docker cp` or API calls
-- **Dynamic grants** — `ln -s` to grant, `rm` to revoke, no container restart
-- **Writes hit shared volume directly** — follow the symlink
-- **Isolation** — agent sees only what orch symlinked into its volume
-
-### Filesystem MCP Decision
-Filesystem MCP was originally planned to gate file access. The symlink bridge makes it **redundant** for bulk I/O. Moved to **backlog**. MCP's remaining role: orchestrator↔agent communication protocol (task dispatch, results), not file serving.
 
 ---
 
@@ -109,88 +87,102 @@ Filesystem MCP was originally planned to gate file access. The symlink bridge ma
 | Orchestrator | `project-vol` + all `agent-*-vol`s | Symlink bridge, task routing, state management |
 | Agent (impl/expl) | Only its own `agent-*-vol` | Works blindly in its workspace |
 
-### Test Files (test-docker/)
-- `test-docker/test1.yml` — compose with 3 containers + 2 volumes
-- `test-docker/Dockerfile.basetest` — base image (uv/python, apt tools, non-root user)
-- The user manually validated: init writes → orch symlinks → agent edits → init sees changes
+---
+
+## 5. Agent Variation Framework
+
+**See `docs/plans/overhaul/agent-variation-matrix.md` for full detail.**
+
+| Variation | Base Type | Model | Skills | Context Injection |
+|-----------|-----------|-------|--------|-------------------|
+| orchestrator | — (primary) | glm-5.1 | planning-with-files | All docs/context/* (pointers only) |
+| strategic_thinker | system_thinker | qwen-3.6-plus | sequential-thinking, create-specification | constraints, services, stack |
+| rag_thinker | system_thinker | qwen-3.6-plus | qdrant-*, langchain-rag, sequential-thinking | constraints, stack, RAG specs |
+| architect_thinker | system_thinker | qwen-3.6-plus | architecture-patterns, agent-pseudocode, create-specification, mermaid-diagrams, sequential-thinking | constraints, stack, conventions, brief |
+| python_implementer | implementer | deepseek-v4-flash | python-expert, python-best-practices, pydantic, python-type-safety | constraints, conventions, stack, spec |
+| infra_implementer | implementer | deepseek-v4-flash | context7 | constraints, stack, spec |
+| code_auditor | auditor | deepseek-v4-pro | python-code-review, pytest, pytest-coverage | constraints, conventions, spec, code |
+| codebase_explorer | explorer | deepseek-v4-flash | (none — built-in) | Targeted query + paths |
+| dependency_explorer | explorer | deepseek-v4-flash | (none) | Targeted query + paths |
+
+**Key principle:** Prompts stay generic. New variations = new config row, zero prompt or code changes.
 
 ---
 
-## 5. Current Plan (task_plan.md)
+## 6. Current Plan (task_plan.md)
 
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 0 | Planning & context gathering | ✅ Complete |
-| 1 | Volume topology + container model design | 🔄 In progress |
-| 2 | LangGraph state management per agent | Pending |
-| 3 | Orchestrator agent design (LangGraph stateflow) | Pending |
-| 4 | RAG integration (complete paused A3-A6) | Pending |
-| 5 | Implementation: Container + State | Pending |
-| 6 | Implementation: Orchestrator + RAG | Pending |
-| 7 | Polish, tests, docs | Pending |
+| 1 | Agent Design (types, variations, prompts, models) | ✅ Complete |
+| 2 | Container & Volume Topology Design | Pending (next) |
+| 3 | LangGraph State Management | Pending |
+| 4 | Orchestrator Agent Design | Pending |
+| 5 | RAG Integration (complete paused A3-A6) | Pending |
+| 6 | Implementation: Container + State | Pending |
+| 7 | Implementation: Orchestrator + RAG | Pending |
+| 8 | Polish, tests, docs | Pending |
 
 ---
 
-## 6. Where Everything Lives
+## 7. Where Everything Lives
 
 | Resource | Path | Contents |
 |----------|------|----------|
-| **Task plan** | `task_plan.md` | Phase breakdown, status, constraints |
-| **Findings** | `findings.md` | All discovered research, system state, issues |
-| **Progress** | `progress.md` | Session log, next actions |
-| **Session handoff** | `SESSION_HANDOFF.md` | This file |
+| **Task plan** | `docs/plans/overhaul/task_plan.md` | Phase breakdown, status, constraints |
+| **Findings** | `docs/plans/overhaul/findings.md` | All discovered research, system state, issues |
+| **Progress** | `docs/plans/overhaul/progress.md` | Session log, next actions |
+| **Session handoff** | `docs/plans/overhaul/SESSION_HANDOFF.md` | This file |
+| **Variation matrix** | `docs/plans/overhaul/agent-variation-matrix.md` | Full variation table, flow, model rationale |
 | **Context files** | `docs/context/` | Stack, conventions, constraints, services, learnings |
 | **Project notes** | `docs/project_notes/` | Bugs, decisions (ADRs 001-023), issues, key facts |
-| **Diagrams** | `docs/diagrams/` | 7 Mermaid diagrams + summary in `docs/exploration/` |
+| **Diagrams** | `docs/diagrams/` | 7 Mermaid diagrams + summary |
 | **Plans (past)** | `docs/plans/` | base/, agent-team/, mcp-mem0-update/, product_owner/ |
 | **RAG dev** | `docs/rag-dev/` | Spec, findings, edge contract, handoff — paused at A3 |
 | **Briefs** | `docs/briefs/` | MCP-Mem0 fixes (4 briefs, not yet executed) |
 | **Test Docker** | `test-docker/` | Validated symlink bridge experiment |
-| **OpenCode backup** | `opencode-mem-backup/` | Previous system context (pre-overhaul) |
 | **Source** | `src/` | MCP server, memory service, RAG pipeline |
 | **Docker** | `Dockerfile`, `docker-compose.yml` | Current (old) single-container setup |
+| **Agent prompts** | `.opencode/prompts/` | orchestrator, system_thinker, implementer, auditor, explorer |
 
 ---
 
-## 7. Installed Skills (Relevant Ones)
+## 8. Exact Next Steps
 
-### LangChain/Graph (installed this session)
-- `langgraph-fundamentals` — StateGraph, nodes, edges, routing
-- `langgraph-persistence` — Checkpointers, per-agent state
-- `langgraph-human-in-the-loop` — Approval interrupts/gates
-- `langchain-architecture` — Architecture patterns (7.6K installs)
-- `langchain-rag` — RAG patterns
-- `langchain-fundamentals`, `langchain-dependencies`, `langchain-middleware`
+1. **Phase 2: Container & Volume Topology Design** — delegate to architect_thinker (System Thinker variation with architecture-patterns + mermaid-diagrams skills)
+2. Design Docker Compose layout with per-variation container specs
+3. Map variation matrix to Dockerfile template + Flox manifests
+4. Design context injection mechanism (JSON config file per spawn)
+5. **User approval gate** before Phase 3
 
-### Deep Agents (installed this session)
-- `deep-agents-core`, `deep-agents-orchestration`, `deep-agents-memory`
-
-### Pre-existing
-- `multi-agent-orchestration` — Delegation patterns
-- `planning-with-files` — File-based planning (loaded, active)
-- `project-memory` — Institutional memory
-- `qdrant-vector-search`, `qdrant-search-quality`
-- `python-patterns`, `async-python-patterns`, `pydantic`
-- `architecture-patterns`, `mermaid-diagrams`
-- `agent-pseudocode`, `create-specification`
+### If resuming mid-session:
+- Read `docs/plans/overhaul/task_plan.md` first (current phase, remaining phases)
+- Read `docs/plans/overhaul/findings.md` (all prior research)
+- Read `docs/plans/overhaul/progress.md` (session log)
+- Read `docs/plans/overhaul/agent-variation-matrix.md` (variation definitions)
+- Read `docs/context/LEARNINGS.md` (mandatory — includes §13-15 on variation framework)
+- Read `test-docker/test1.yml` (validated architecture proof)
 
 ---
 
-## 8. Key Decisions Made This Session
+## 9. Key Decisions Made This Session
 
 | Decision | Rationale |
 |----------|-----------|
-| **Symlink bridge is THE filesystem access model** | Validated in test-docker/. Zero-copy, zero-host, dynamic grants without restart. |
-| **Filesystem MCP → backlog** | Symlink bridge makes it redundant for bulk I/O. |
-| **MVP: Implementer + Explorer** | Start minimal, expand later. Expert/architect/researcher are defined but backlog. |
-| **Agents never communicate directly** | All routing through orchestrator. File-based handoffs. |
-| **User handles git, not the system** | No "commit back to host" step needed. Agent writes hit shared volume, user reviews/commits. |
-| **Named volumes (not bind mounts) for isolation** | Agents must never touch host. Docker volumes are the boundary. |
-| **Flox per container** | Hermetic, reproducible environments. Fresh adoption. |
+| **RAG Architect → System Thinker variation** | Same interaction mechanics. Different skills = different variation. Avoids type proliferation. |
+| **Code Auditor + Integration Auditor merged** | Same 5-check framework. Context injection per task differentiates. |
+| **Architect is System Thinker variation** | "How does it fit?" is a design question. Same mechanics (wide-deep, file output, skill loading). |
+| **Prompts stay generic, variations are config** | Upgrade path: containers map 1:1 to variations. No prompt changes when adding variations. |
+| **Orchestrator never reads full content** | Token conservation. Orchestrator owns context direction, not content depth. |
+| **GLM-5.1 for Orchestrator** | Long-horizon endurance (600+ tool calls). Won't lose user intent during deep delegation. |
+| **Qwen 3.6 Plus for System Thinker** | 1M context window for whole-system reading. |
+| **DeepSeek V4 Pro for Auditor** | Lowest hallucination rate. Precision for catching flaws. |
+| **DeepSeek V4 Flash for Implementer/Explorer** | 15x cheaper, near-parity for standard logic and scanning. |
+| **Explorer needs no skills** | Built-in tools (glob, grep, rg, git, read) cover all exploration needs. |
 
 ---
 
-## 9. Constraints (Non-Negotiable)
+## 10. Constraints (Non-Negotiable)
 
 - Agents **never access host filesystem** — Docker volumes only
 - RTX 3080 (10GB VRAM max), 32GB RAM max
@@ -202,125 +194,3 @@ Filesystem MCP was originally planned to gate file access. The symlink bridge ma
 - Port 8000 (not 8001)
 - No hardcoded secrets or user IDs — env vars only
 - `src/` is NOT a Python package — relative imports within packages
-
----
-
-## 10. Nuances & Context for Next Agent
-
-### Why the overhaul?
-User tried Mem0, managed DBs, monolithic MCP servers — they lacked fine-grained control over individual agent flows. The vision is templates that adapt: an "expert architect" could be Python-specialist or Java-specialist based on injected context and a feedback loop.
-
-### User's mental model
-- User is the **project owner / lead software engineer** switching between projects
-- User runs the Docker fleet, controls which project is active, handles git
-- Agents are **tools**, not co-developers — they execute tasks in isolated workspaces
-- The orchestrator is the **single point of contact** between user and agent team
-
-### What "LangGraph-style" means
-- Each agent has its own StateGraph with persisted state (learnings survive restarts)
-- Orchestrator has its own StateGraph tracking session phase, agent assignments, context
-- Human-in-the-loop interrupts for the 4-gate approval pipeline (Approach → Spec → Code → Review)
-- **Not** LangChain chains — it's the graph-based state management pattern
-
-### The explorer subagent gotcha
-The `explorer` subagent type returns only `"complete"` or `"error"` — actual findings are written to `docs/exploration/`. General subagents return content inline. This burned us once. See LEARNINGS.md §9.
-
-### Context file update protocol
-- `docs/context/` files are mandatory read at session start
-- `docs/context/LEARNINGS.md` updated with: over-reading rule, subagent behavior table, "test before you spec" principle
-- `docs/context/services.md` was not read this session (permission denied — user reminded to only read what's needed)
-
----
-
-## 11. Exact Next Steps
-
-1. **Load `langgraph-fundamentals`** — understand StateGraph model before designing
-2. **Load `langchain-architecture`** — container-per-agent patterns (7.6K installs, likely high-signal)
-3. **Design Phase 1**: Volume topology + Docker Compose layout + Flox env manifests + Dockerfile template
-4. **Present Phase 1 design for user approval** before proceeding to Phase 2
-5. **Do NOT** load implementation skills (langgraph-persistence, langchain-dependencies) until ready to implement — those are for implementers
-
-### If resuming mid-session:
-- Read `task_plan.md` first (current phase, remaining phases)
-- Read `findings.md` (all prior research)
-- Read `progress.md` (session log)
-- Read `test-docker/test1.yml` (validated architecture proof)
-- Read `docs/context/LEARNINGS.md` (mandatory)
-- Phase 1 is in_progress, next action = load langgraph skills + design
-
----
-
-## 12. Files Modified This Session
-| File | Action |
-|------|--------|
-| `task_plan.md` | Created, revised 3x |
-| `findings.md` | Created, updated |
-| `progress.md` | Created, updated |
-| `SESSION_HANDOFF.md` | Created |
-| `test-docker/docker-compose.yml` | Created (original), replaced by user |
-| `test-docker/test1.yml` | Created (user) |
-| `test-docker/Dockerfile.basetest` | Created (user) |
-| `docs/context/LEARNINGS.md` | Updated (3 additions) |
-| `docs/exploration/diagrams-summary.md` | Created (explorer agent) |
-| `docs/exploration/plans-summary.md` | Created (explorer agent) |
-| `docs/docker/volumes.md` | Read (user-added prior) |
-| `docs/docker/research-v1.txt` | Read (user-added prior) |
-
----
-
-## 13. Session Continuation (Same Session) — Agent Prompt & Config Overhaul
-
-### Agent Roster Change
-- **Reviewer → Auditor**: Replaced single-dimension code review with 5-check audit framework (spec compliance, best practices, system integration, adversarial testing, report)
-- **Coordinator removed**: Redundant with orchestrator (same prompt now, was a legacy duplicate)
-- **MVP agents now**: Orchestrator, System Thinker, Implementer, Auditor, Explorer (+ RAG Architect as specialized primary)
-
-### Prompt Design Philosophy Established
-All agent prompts rewritten following a single principle: **define interaction mechanics, not domain knowledge.**
-
-| Principle | Meaning |
-|-----------|---------|
-| **Mechanics, not domain** | Prompt = how the agent thinks/communicates. Domain expertise = skills loaded at runtime + files pointed to |
-| **User is Governor** | Every agent prompt starts with this. Permissions bubble up. Never assume approval. |
-| **Context Economy** | All prompts mandate conciseness, point-to-files, save context |
-| **Learnings Recording** | All agents record to `docs/learnings/` after completing work |
-| **Language-agnostic** | No Python-specific loads baked in. Orchestrator specifies skills per spawn. |
-| **~60-line target** | Stripped pseudocode examples, skill catalogs, domain templates from prompts |
-
-### Files Changed This Continuation
-
-| File | Action | Details |
-|------|--------|---------|
-| `.opencode/prompts/auditor.md` | **Created** | New 5-check audit agent (96 lines) |
-| `.opencode/prompts/system_thinker.md` | **Rewritten** | 127→89 lines. Removed domain content, added mandatory principles. Reviewer→Auditor. |
-| `.opencode/prompts/implementer.md` | **Rewritten** | 84→87 lines. Removed `python-expert` auto-load, removed self-testing, added mandatory principles. |
-| `.opencode/prompts/orchestrator.md` | **Updated** | Consolidated principles, added mandatory block, updated anti-scope, Reviewer→Auditor. |
-| `.opencode/opencode.jsonc` | **Rewritten** | Removed coordinator & reviewer. Added auditor with tight permissions (pytest,rg,read-only). Updated all descriptions. All task lists updated (Reviewer→Auditor). |
-| `docs/context/LEARNINGS.md` | **Updated** | Added §12: Agent Prompt Design: Mechanics Not Domain. Fixed duplicate §9. |
-
-### Skills Searched (No New Installs)
-- Docker architecture/file-structure skills: nothing strong (>500 installs). Skipped.
-- Docker compose orchestration: `manutej/...@docker-compose-orchestration` (1.3K) — flagged, not loaded.
-- Code audit/security/adversarial: nothing strong. Local skills (`python-code-review`, `pytest`) sufficient for Auditor.
-
-### Phase 1 Design Status
-Phase 1 design was **proposed** (not yet finalized):
-- 3 volumes: `project-vol` (external), `agent-impl-vol`, `agent-expl-vol`
-- Docker compose: orchestrator + implementer + explorer on internal-net
-- Symlink bridge: orch mounts all volumes, creates symlinks per task
-- Dockerfile template: based on validated `test-docker/Dockerfile.basetest`
-- **Flox confirmed**: baked into agent image, `flox install` using project toml manifest
-- Explorer gets read-only mount (enforces "scout" role at filesystem level)
-- Context injection: JSON config file written by orch into agent volume
-- **Awaiting user approval** before delegating formal spec to System Thinker
-
-### Open Questions
-- Flox: toml manifest location/structure TBD
-- Auditor check #3 (system integration): needs dependency map file — Explorer-generated or RAG-backed later
-- Agent communication protocol (Phase 3): how orch dispatches tasks, collects results
-
-### Exact Next Steps
-1. **User reviews Phase 1 design** — approve, modify, or reject
-2. **User reviews prompts** — final check on auditor, implementer, system_thinker
-3. **After approval**: delegate Phase 1 formal spec to System Thinker
-4. **After Phase 1 gate**: Phase 2 (LangGraph state management per agent)

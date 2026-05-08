@@ -71,13 +71,31 @@
 - **Language-agnostic**: No Python/java assumptions baked into prompts.
 - Target: ~60 lines per prompt, stripped of domain examples and skill catalogs.
 
-### Agent Roster (Updated)
-- **Removed**: Coordinator (legacy duplicate), Reviewer (replaced by Auditor)
-- **Added**: Auditor — 5-check framework (spec compliance, best practices, system integration, adversarial testing, report)
-- **Active**: Orchestrator, System Thinker, Implementer, Auditor, Explorer, RAG Architect
+### Agent Roster (Updated Session 002)
+- **Removed**: Coordinator (legacy duplicate), Reviewer (replaced by Auditor 5-check), RAG Architect (absorbed into System Thinker as rag_thinker variation)
+- **Core 5**: Orchestrator, System Thinker, Implementer, Auditor, Explorer
+- **Variation framework**: Config-driven. Prompts stay generic. Variations = model + skills + context injection.
+- **Full matrix**: See `docs/plans/overhaul/agent-variation-matrix.md`
+
+### Agent Variation Framework (Session 002)
+- **Principle**: Generic type + config-driven variation. Prompt = mechanics. Domain = injected skills + context files.
+- **Variations defined**:
+  - Orchestrator (no variations, always glm-5.1)
+  - strategic_thinker, rag_thinker, architect_thinker (system_thinker base, qwen-3.6-plus)
+  - python_implementer, infra_implementer (implementer base, deepseek-v4-flash)
+  - code_auditor (auditor base, deepseek-v4-pro)
+  - codebase_explorer, dependency_explorer (explorer base, deepseek-v4-flash)
+- **File-based handoff**: Orchestrator reads summaries only, never full content. Each agent reads/writes to specific directories.
+- **Read/write boundaries**: Thinkers never read source code. Implementers never read briefs. Auditors never read briefs. Explorers never read briefs or specs.
 
 ### Phase 1 Design (Proposed, Not Yet Approved)
 - Flox baked into agent Docker image, `flox install` using project toml manifest
 - 3 Docker volumes: `project-vol` (external), `agent-impl-vol`, `agent-expl-vol`
 - Explorer gets read-only mount for enforcement
 - Context injection via JSON config file written by orchestrator
+
+### Model Selection Rationale (Session 002)
+- **GLM-5.1 → Orchestrator**: Long-horizon endurance (600+ tool calls, SWE-bench Pro 58.4%). Maintains global state across delegation chains.
+- **Qwen 3.6 Plus → System Thinker**: 1M token context window. Hybrid Gated DeltaNet maintains retrieval accuracy. Essential for whole-system reading.
+- **DeepSeek V4 Pro → Auditor**: Lowest hallucination rate. Zero-shot precision for catching logic flaws.
+- **DeepSeek V4 Flash → Implementer/Explorer**: 15x cheaper than Pro with near-parity for standard logic. Fast iteration.
