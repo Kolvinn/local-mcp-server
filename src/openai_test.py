@@ -3,7 +3,7 @@ import os
 
 OPENCODE_GO_KEY = os.getenv(
     "OPENCODE_GO_API_KEY",
-    "sk-ce5XahbeNcIM30Tjz3eb5N4hnI5zWSHnXtfGk1VlPnUe6bt0vs0fbfM8zZXfm7KP",
+    "",
 )
 OPENCODE_GO_URL = "https://opencode.ai"
 MODEL_NAME = "deepseek-v4-flash"

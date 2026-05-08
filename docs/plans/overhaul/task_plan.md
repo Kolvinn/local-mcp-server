@@ -66,16 +66,16 @@ See `docs/plans/overhaul/agent-variation-matrix.md` for full detail.
 - Variation matrix documented: `docs/plans/overhaul/agent-variation-matrix.md`
 
 ### Phase 2: Container & Volume Topology Design
-**Status:** pending
+**Status:** spec written, awaiting user review
 
-- Design volume topology: `project-vol` (shared) + per-agent `agent-vol`s
-- Design orchestrator symlink management (grant/revoke file access per task)
-- Define Docker Compose layout (orchestrator + N agents on `internal-net`)
-- Define Flox environment per agent variation (each variation = different Flox manifest)
-- Define container-per-agent model: one Dockerfile template, parameterized by variation
-- Define context injection mechanism (env vars, startup args, variation config)
-- Map variation matrix to container specs (each row → Dockerfile + Flox + skill preload)
-- **Gate:** User approves volume topology + container model
+- ✅ Design volume topology: `project-vol` (shared) + per-agent `agent-vol`s
+- ✅ Design orchestrator symlink management (grant/revoke file access per task)
+- ✅ Define Docker Compose layout (orchestrator + N agents on `internal-net`)
+- ✅ Define Flox environment per agent variation (each variation = different Flox manifest)
+- ✅ Define container-per-agent model: one Dockerfile template, parameterized by variation
+- ✅ Define context injection mechanism (env vars, startup args, variation config)
+- ✅ Map variation matrix to container specs (each row → Dockerfile + Flox + skill preload)
+- ⏳ **Gate:** User approves volume topology + container model (spec at `docs/specs/container-volume-topology.md`)
 
 ### Phase 3: LangGraph State Management
 **Status:** pending

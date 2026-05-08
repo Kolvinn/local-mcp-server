@@ -14,7 +14,7 @@ config = {
         "provider": "openai",
         "config": {
             "model": "opencode-go/deepseek-v4-flash",  # Example model
-            "api_key": "sk-ce5XahbeNcIM30Tjz3eb5N4hnI5zWSHnXtfGk1VlPnUe6bt0vs0fbfM8zZXfm7KP",
+            "api_key": "",
             "openai_base_url": "https://opencode.ai/zen/go/v1/chat/completions",  # Example endpoint
             "temperature": 0.2,
         },

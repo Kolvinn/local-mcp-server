@@ -1,54 +1,43 @@
-# SESSION HANDOFF — Agentic Container Overhaul (Session 002)
+# SESSION HANDOFF — Agentic Container Overhaul (Session 003)
 
 **Date:** 2026-05-08
-**Status:** Phase 1 (Agent Design) complete. Phase 2 (Container & Volume Topology) next.
+**Status:** Phase 2 (Container & Volume Topology) spec written — awaiting user review. Phase 3 (LangGraph State Management) next.
 **Handoff to:** Next orchestrator session or human review.
 
 ---
 
 ## 1. Objective
 
-Overhaul the local Docker setup from a single OpenCode MCP server into a **LangGraph-based multi-container agent system** powered by **Flox environments**.
-
-- Each agent type = generic template with config-driven variations (model + skills + context injection)
-- Prompts define interaction mechanics, never domain knowledge
-- LangGraph for per-agent state management and the orchestrator's decision flow
-- Flox per container for hermetic, reproducible environments
-- **Core 5 types**: Orchestrator, System Thinker, Implementer, Auditor, Explorer
-- **9 variations**: strategic_thinker, rag_thinker, architect_thinker, python_implementer, infra_implementer, code_auditor, codebase_explorer, dependency_explorer, + Orchestrator (no variation)
-- Agents **never communicate directly** — orchestrator routes via file-based handoffs
-- Agents **never access the host** — filesystem isolation via Docker volumes only
-- Orchestrator **never reads full content** — summaries + file paths only, bubbles to user after every agent
+Same as Session 002 — overhaul local Docker setup into a **LangGraph-based multi-container agent system** powered by **Flox environments**.
 
 ---
 
-## 2. What Changed This Session
+## 2. What Changed This Session (003)
 
-### Agent Variation Framework (Solidified)
-- RAG Architect absorbed into System Thinker as `rag_thinker` variation
-- Architect is System Thinker variation (`architect_thinker`), not a separate type
-- Code Auditor + Integration Auditor merged (context differentiates, not separate type)
-- Model assignments: GLM-5.1 (orch), Qwen 3.6 Plus (thinker), DeepSeek V4 Flash (impl/expl), DeepSeek V4 Pro (auditor)
-- File-based handoff protocol defined with read/write boundaries per agent type
-- Each agent reads only what it needs: Thinkers never see source code, Implementers never see briefs, Auditors never see briefs
+### Phase 2 Design Spec Written
+- `docs/specs/container-volume-topology.md` created (1050 lines — needs splitting per §16)
+- Architect_thinker designed: volume topology, Docker Compose layout, Dockerfile template, Flox manifests per variation, context injection, container lifecycle, and OpenCode+LangGraph coexistence
+- Spec covers all 10 required sections with 3 mermaid diagrams and 10 decisions awaiting user approval
+
+### Flox Research Completed
+- `docs/exploration/flox-docker-research.md` written (553 lines)
+- Flox works in Docker: apt install, `.flox/run/bin` on PATH for headless activation
+- uv IS in Flox catalog
+- Recommended pattern: Flox for ALL deps, minimal Dockerfile, no conda
+
+### Critical Learnings Recorded
+- **LEARNINGS §16**: Specs must NEVER exceed 350 lines. Break into multiple files. Write tool fails silently on large content — use bash fallback.
+- **Agent type**: `explorer` not `explore` — different subagent types, different capabilities
+- **Context economy**: Orchestrator must delegate file reading, not read directly
 
 ### Files Modified
 | File | Action |
 |------|--------|
-| `.opencode/prompts/orchestrator.md` | Updated — Variation Framework, Handoff Protocol, Read/Write table |
-| `.opencode/prompts/system_thinker.md` | Updated — Read/Write Boundaries, brief consumption, expanded anti-scope |
-| `.opencode/prompts/implementer.md` | Updated — Read/Write Boundaries, "Never read briefs" |
-| `.opencode/prompts/auditor.md` | Updated — Read/Write Boundaries, "Never read briefs" |
-| `.opencode/prompts/explorer.md` | Updated — Mandatory Principles added, Read/Write Boundaries |
-| `.opencode/prompts/reviewer.md` | DELETED — absorbed into Auditor |
-| `.opencode/prompts/coordinator.md` | DELETED — redundant with Orchestrator |
-| `.opencode/prompts/rag_architect.md` | DELETED — absorbed into System Thinker |
-| `.opencode/opencode.jsonc` | Updated — models, removed rag_architect, variation names in descriptions |
-| `docs/plans/overhaul/agent-variation-matrix.md` | CREATED — full variation table, flow, rationale |
-| `docs/context/LEARNINGS.md` | Updated — §13, §14, §15 added |
-| `docs/plans/overhaul/task_plan.md` | Updated — new phases, variation framework section |
-| `docs/plans/overhaul/findings.md` | Updated — roster, variation framework, model rationale |
-| `docs/plans/overhaul/progress.md` | Updated — Session 002 log |
+| `docs/exploration/flox-docker-research.md` | CREATED — Flox research findings |
+| `docs/specs/container-volume-topology.md` | CREATED — Phase 2 design spec |
+| `docs/context/LEARNINGS.md` | Updated — §16 added (spec size limits, write failures, agent type selection) |
+| `docs/plans/overhaul/progress.md` | Updated — Session 003 log |
+| `docs/plans/overhaul/SESSION_HANDOFF.md` | This file — rewritten for Session 003 |
 
 ---
 
@@ -115,8 +104,8 @@ Overhaul the local Docker setup from a single OpenCode MCP server into a **LangG
 |-------|-------------|--------|
 | 0 | Planning & context gathering | ✅ Complete |
 | 1 | Agent Design (types, variations, prompts, models) | ✅ Complete |
-| 2 | Container & Volume Topology Design | Pending (next) |
-| 3 | LangGraph State Management | Pending |
+| 2 | Container & Volume Topology Design | ✅ Spec written (awaiting review) |
+| 3 | LangGraph State Management | Pending (next) |
 | 4 | Orchestrator Agent Design | Pending |
 | 5 | RAG Integration (complete paused A3-A6) | Pending |
 | 6 | Implementation: Container + State | Pending |
@@ -144,41 +133,46 @@ Overhaul the local Docker setup from a single OpenCode MCP server into a **LangG
 | **Source** | `src/` | MCP server, memory service, RAG pipeline |
 | **Docker** | `Dockerfile`, `docker-compose.yml` | Current (old) single-container setup |
 | **Agent prompts** | `.opencode/prompts/` | orchestrator, system_thinker, implementer, auditor, explorer |
+| **Flox research** | `docs/exploration/flox-docker-research.md` | Flox in Docker, manifest format, package coverage, Dockerfile patterns |
+| **Phase 2 spec** | `docs/specs/container-volume-topology.md` | Full container/volume topology design (needs splitting per LEARNINGS §16) |
 
 ---
 
 ## 8. Exact Next Steps
 
-1. **Phase 2: Container & Volume Topology Design** — delegate to architect_thinker (System Thinker variation with architecture-patterns + mermaid-diagrams skills)
-2. Design Docker Compose layout with per-variation container specs
-3. Map variation matrix to Dockerfile template + Flox manifests
-4. Design context injection mechanism (JSON config file per spawn)
-5. **User approval gate** before Phase 3
+1. **User reviews `docs/specs/container-volume-topology.md`** — approve or request changes
+2. **User decides on OpenCode + LangGraph coexistence approach** — 2+ approaches detailed in §8 of spec
+3. **Phase 3: LangGraph State Management** — delegate to architect_thinker
+4. **Phase 4: Orchestrator Agent Design** — delegate to architect_thinker
+5. **Phase 5: RAG Integration** — complete paused A3-A6
+6. **Phase 6-8: Implementation, Polish** — only after all designs approved
 
-### If resuming mid-session:
-- Read `docs/plans/overhaul/task_plan.md` first (current phase, remaining phases)
-- Read `docs/plans/overhaul/findings.md` (all prior research)
-- Read `docs/plans/overhaul/progress.md` (session log)
+### If resuming:
+- Read `docs/plans/overhaul/task_plan.md` (phase status)
+- Read `docs/plans/overhaul/progress.md` (Session 003 log — critical failures)
+- Read `docs/context/LEARNINGS.md` §16 (spec size limits, write failures)
+- Read `docs/specs/container-volume-topology.md` (Phase 2 design — user review pending)
+- Read `docs/exploration/flox-docker-research.md` (Flox research)
 - Read `docs/plans/overhaul/agent-variation-matrix.md` (variation definitions)
-- Read `docs/context/LEARNINGS.md` (mandatory — includes §13-15 on variation framework)
-- Read `test-docker/test1.yml` (validated architecture proof)
 
 ---
 
-## 9. Key Decisions Made This Session
+## 9. Key Decisions Made (Sessions 002-003)
 
-| Decision | Rationale |
-|----------|-----------|
-| **RAG Architect → System Thinker variation** | Same interaction mechanics. Different skills = different variation. Avoids type proliferation. |
-| **Code Auditor + Integration Auditor merged** | Same 5-check framework. Context injection per task differentiates. |
-| **Architect is System Thinker variation** | "How does it fit?" is a design question. Same mechanics (wide-deep, file output, skill loading). |
-| **Prompts stay generic, variations are config** | Upgrade path: containers map 1:1 to variations. No prompt changes when adding variations. |
-| **Orchestrator never reads full content** | Token conservation. Orchestrator owns context direction, not content depth. |
-| **GLM-5.1 for Orchestrator** | Long-horizon endurance (600+ tool calls). Won't lose user intent during deep delegation. |
-| **Qwen 3.6 Plus for System Thinker** | 1M context window for whole-system reading. |
-| **DeepSeek V4 Pro for Auditor** | Lowest hallucination rate. Precision for catching flaws. |
-| **DeepSeek V4 Flash for Implementer/Explorer** | 15x cheaper, near-parity for standard logic and scanning. |
-| **Explorer needs no skills** | Built-in tools (glob, grep, rg, git, read) cover all exploration needs. |
+| Decision | Session | Rationale |
+|----------|---------|-----------|
+| **RAG Architect → System Thinker variation** | 002 | Same interaction mechanics. Different skills = different variation. |
+| **Code Auditor + Integration Auditor merged** | 002 | Same 5-check framework. Context injection per task differentiates. |
+| **Architect is System Thinker variation** | 002 | "How does it fit?" is a design question. Same mechanics. |
+| **Prompts stay generic, variations are config** | 002 | Containers map 1:1 to variations. No prompt changes when adding variations. |
+| **Orchestrator never reads full content** | 002 | Token conservation. Orchestrator owns context direction, not content depth. |
+| **GLM-5.1 / Qwen 3.6 Plus / DeepSeek V4** | 002 | Long-horizon, 1M context, lowest hallucination, cheap fast iteration. |
+| **Flox replaces conda in all containers** | 003 | Better determinism, broader system packages, clean separation from uv. |
+| **uv IS in Flox catalog** | 003 | Confirmed via context7 research — no apt/pip fallback needed for Python management. |
+| **Containers long-lived, per project** | 003 | Spin up as hierarchy, stay running, accept tasks. |
+| **Specs NEVER > 350 lines** | 003 | Write tool fails silently on large content. Break into multiple files. |
+| **bash echo fallback for file writes** | 003 | When Write tool silently fails, use `echo >> file.md` and `cat`. |
+| **`explorer` not `explore` subagent type** | 003 | Different capabilities — `explore` is thin search, `explorer` is our defined agent. |
 
 ---
 
@@ -194,3 +188,6 @@ Overhaul the local Docker setup from a single OpenCode MCP server into a **LangG
 - Port 8000 (not 8001)
 - No hardcoded secrets or user IDs — env vars only
 - `src/` is NOT a Python package — relative imports within packages
+- **Flox replaces conda** — all deps in manifest.toml, Dockerfile minimal
+- **Specs/docs NEVER > 350 lines** — break into multiple files
+- **Orchestrator delegates file reading** — does not read Docker/compose/source files directly

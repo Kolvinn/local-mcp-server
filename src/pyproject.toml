@@ -23,6 +23,9 @@ dependencies = [
     "graffitiai>=0.1.19",
     "falkordb>=1.6.1",
     "graphiti-core[falkordb]>=0.29.0",
+    "langchain-openai>=1.2.1",
+    "langchain>=1.2.17",
+    "deepagents>=0.5.7",
 ]
 
 [dependency-groups]

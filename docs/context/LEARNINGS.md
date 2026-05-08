@@ -195,3 +195,25 @@ See `docs/plans/overhaul/agent-variation-matrix.md` for the complete table with 
 - **Reviewer** → absorbed into Auditor (5-check framework supersedes single-dimension review)
 - **Coordinator** → redundant with Orchestrator
 - **RAG Architect** → absorbed into System Thinker as `rag_thinker` variation
+
+## 16. Spec & File Write Size Limits
+
+**Specs and docs must NEVER exceed 350 lines.** If content exceeds this, break it into multiple files with clear naming (e.g., `spec-pt1.md`, `spec-pt2.md`). Large file writes cause subagent failures — the Write tool cannot handle very large content payloads in a single call.
+
+### Why This Happened
+In Session 003, a system_thinker was delegated to write a 10-section design spec. It got stuck in a loop re-reading context files because each attempted write silently failed (content too large for the Write tool). Only after switching to bash-based writes (`echo >>`, `cat`) did it succeed. The resulting spec was 1050 lines — nearly 3x the limit.
+
+### Rules for All Agents
+- **Orchestrator**: When delegating spec writing, MUST instruct the agent to split output across multiple files if the spec has > 5 sections or is expected to be large. Mention "use bash echo/cat if Write tool fails."
+- **System Thinker**: If a spec will be > 350 lines, proactively split across N files and name them sequentially.
+- **Implementer**: Same rule — multiple source files, not one monolithic file.
+- **Fallback pattern**: If the Write tool fails silently, switch to bash: `echo "content" >> file.md` for each section. Verify with `cat`.
+
+### Agent Type Selection (also from Session 003)
+- `explore` subagent type ≠ our defined `explorer` agent. The `explore` type is a thin codebase search tool without skill/tool access. The `explorer` type (our defined agent) has write access and can load skills.
+- **Always use `explorer` for our Explorer agent, never `explore`.**
+- The orchestrator must be precise about subagent_type names.
+
+### Context Economy for Orchestrator
+- The orchestrator should delegate file reading (Dockerfiles, compose files, source code) to sub agents, not read them directly. The orchestrator reads summaries and file paths only.
+- Exception: `docs/context/*` is mandatory at session start. Everything else should flow through sub agents.

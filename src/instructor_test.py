@@ -18,7 +18,7 @@ class MemoryMetadata(BaseModel):
 client = instructor.from_openai(
     OpenAI(
         base_url="https://api.opencode.go/v1",
-        api_key="sk-ce5XahbeNcIM30Tjz3eb5N4hnI5zWSHnXtfGk1VlPnUe6bt0vs0fbfM8zZXfm7KP",
+        api_key="",
     ),
     mode=instructor.Mode.JSON,
 )

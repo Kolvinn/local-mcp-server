@@ -84,3 +84,45 @@
 2. Design volume topology + Docker Compose layout + Flox env manifests per variation
 3. Map variation matrix to container specs
 4. User approval gate before implementation
+
+---
+
+## Session 003 — 2026-05-08
+
+### Phase 2: Container & Volume Topology Design
+
+#### What Happened
+- User instructed: conda phased out, Flox is the way, containers long-lived per project
+- Flox research delegated to `explorer` (not `explore`) with context7 skill — ✅
+- Flox research written to `docs/exploration/flox-docker-research.md` — 553 lines
+- Key findings: Flox in Docker works via apt install + `.flox/run/bin` on PATH, uv IS in Flox catalog, Nix closure adds ~100-200MB
+- Phase 2 design spec delegated to architect_thinker (system_thinker variation)
+
+#### Failures Encountered
+| Failure | Cause | Resolution |
+|---------|-------|------------|
+| Explorer didn't load context7 | Used `explore` subagent type (thin search) instead of `explorer` (our defined agent) | Respawned with correct `explorer` subagent_type |
+| Orchestrator read Docker/compose files directly | Violated context economy rule — should have delegated | Corrected; lesson recorded in LEARNINGS §16 |
+| System thinker looped on context re-reading | Write tool silently failing on large content (1050-line spec) | Switched to bash `echo >>` commands for file writes |
+| Multiple resume attempts failed | Same write-size issue persisted across resumes | Fresh approach: bash commands + small edits |
+
+#### What Changed
+- **Created**: `docs/exploration/flox-docker-research.md` — Flox research (553 lines)
+- **Created**: `docs/specs/container-volume-topology.md` — Phase 2 design spec (1050 lines — needs splitting per §16)
+- **Updated**: `docs/context/LEARNINGS.md` — §16 added (spec size limits, write failures, agent type selection, context economy)
+
+#### Key Learnings (Session 003)
+1. **Specs > 350 lines = failure.** Break into multiple files. Orchestrator must pre-empt this.
+2. **Write tool silently fails on large content.** Fallback: bash `echo >>` / `cat`.
+3. **`explore` ≠ `explorer`.** Different subagent types with different capabilities.
+4. **Orchestrator reads too much.** Delegate file reading to sub agents.
+
+### Current Phase
+- Phase 0: Planning & Context Gathering — ✅ complete
+- Phase 1: Agent Design — ✅ complete
+- **Phase 2: Container & Volume Topology Design — spec written, awaiting user review**
+
+### Next Actions
+1. User reviews `docs/specs/container-volume-topology.md`
+2. User approves (or requests changes) to Phase 2 design
+3. Phase 3: LangGraph State Management (pending user gate)
