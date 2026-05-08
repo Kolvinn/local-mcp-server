@@ -10,7 +10,7 @@
     "orchestrator": {
       "description": "Orchestrator — Sole user contact. Owns goals, workflow direction, delegation, and approval gates. Never designs, codes, explores, or verifies. Spawns agent variations (Thinker, Architect, Implementer, Auditor, Explorer) with per-task skill/context injection.",
       "mode": "primary",
-      "model": "opencode-go/glm-5.1",
+      "model": "opencode-go/deepseek-v4-pro",
       "prompt": "{file:./prompts/orchestrator.md}",
       "permission": {
         "bash": {
@@ -47,7 +47,7 @@
           "implementer": "allow",
           "auditor": "allow",
           "explorer": "allow",
-          "general": "allow",
+          "explore": "deny",
           "*": "ask"
         }
       }
@@ -55,7 +55,7 @@
     "system_thinker": {
       "description": "System Thinker — Spawnable template for domain design. Loads skills per delegation. Produces design options (wide) and pseudocode specs (deep). Records learnings. Never writes production code or talks to users. Variations: strategic_thinker, rag_thinker, architect_thinker.",
       "mode": "subagent",
-      "model": "opencode-go/qwen3.6-plus",
+      "model": "opencode-go/deepseek-v4-pro",
       "prompt": "{file:./prompts/system_thinker.md}",
       "permission": {
         "bash": {
@@ -67,23 +67,23 @@
           "git log *": "allow",
           "git diff *": "allow",
           "git show *": "allow",
-          "*": "deny"
+          "echo *": "allow",
+          "vi *": "ask",
+          "tree *": "allow",
+          "tee *": "ask",
+          "*": "ask"
         },
-        "read": "allow",
-        "write": {
-          "docs/briefs/*": "allow",
-          "docs/specs/*": "allow",
-          "docs/learnings/*": "allow",
-          "*": "deny"
-        },
+        "read": "deny",
+        "write": "deny",
         "glob": "allow",
         "grep": "allow",
         "webfetch": "deny",
         "websearch": "deny",
-        "edit": "deny",
+        "skill": "ask",
+        "edit": "ask",
         "task": {
           "explorer": "allow",
-          "*": "deny"
+          "*": "ask"
         }
       }
     },
@@ -106,6 +106,7 @@
         "read": "allow",
         "write": "ask",
         "edit": "ask",
+        "skill": "ask",
         "webfetch": "deny",
         "websearch": "deny",
         "glob": "allow",
@@ -142,6 +143,7 @@
         },
         "edit": "deny",
         "glob": "allow",
+        "skill": "ask",
         "grep": "allow",
         "webfetch": "deny",
         "websearch": "deny",
@@ -171,9 +173,10 @@
         "websearch": "deny",
         "glob": "allow",
         "read": "allow",
+        "skill": "ask",
         "write": {
           "docs/exploration/*": "allow",
-          "*": "deny"
+          "*": "ask"
         },
         "edit": "deny",
         "task": "deny"
