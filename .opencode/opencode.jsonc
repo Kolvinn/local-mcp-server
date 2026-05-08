@@ -8,9 +8,9 @@
   },
   "agent": {
     "orchestrator": {
-      "description": "Orchestrator — Sole user contact. Owns goals, workflow direction, delegation, and approval gates. Never designs, codes, explores, or verifies. Spawns System Thinker (design), Implementer (code), Auditor (verify), Explorer (scout).",
+      "description": "Orchestrator — Sole user contact. Owns goals, workflow direction, delegation, and approval gates. Never designs, codes, explores, or verifies. Spawns agent variations (Thinker, Architect, Implementer, Auditor, Explorer) with per-task skill/context injection.",
       "mode": "primary",
-      "model": "opencode-go/deepseek-v4-pro",
+      "model": "opencode-go/glm-5.1",
       "prompt": "{file:./prompts/orchestrator.md}",
       "permission": {
         "bash": {
@@ -53,9 +53,9 @@
       }
     },
     "system_thinker": {
-      "description": "System Thinker — Spawnable template for domain design. Loads skills per delegation. Produces design options (wide) and pseudocode specs (deep). Records learnings. Never writes production code or talks to users.",
+      "description": "System Thinker — Spawnable template for domain design. Loads skills per delegation. Produces design options (wide) and pseudocode specs (deep). Records learnings. Never writes production code or talks to users. Variations: strategic_thinker, rag_thinker, architect_thinker.",
       "mode": "subagent",
-      "model": "opencode-go/kimi-k2.5",
+      "model": "opencode-go/qwen3.6-plus",
       "prompt": "{file:./prompts/system_thinker.md}",
       "permission": {
         "bash": {
@@ -88,7 +88,7 @@
       }
     },
     "implementer": {
-      "description": "Implementer — Code translator. Reads approved pseudocode specs, writes production code. Translates, does not design. Language-agnostic — skills loaded per task. Code goes to Auditor for verification.",
+      "description": "Implementer — Code translator. Reads approved pseudocode specs, writes production code. Translates, does not design. Language-agnostic — skills loaded per task. Variations: python_implementer, infra_implementer.",
       "mode": "subagent",
       "model": "opencode-go/deepseek-v4-flash",
       "prompt": "{file:./prompts/implementer.md}",
@@ -114,9 +114,9 @@
       }
     },
     "auditor": {
-      "description": "Auditor — Code audit & verification specialist. Examines code across 5 dimensions: spec compliance, best practices, system integration, adversarial testing, and produces structured findings. Never fixes code. Language-agnostic.",
+      "description": "Auditor — Code audit & verification specialist. Examines code across 5 dimensions: spec compliance, best practices, system integration, adversarial testing, and produces structured findings. Never fixes code. Language-agnostic. Variation: code_auditor.",
       "mode": "subagent",
-      "model": "opencode-go/kimi-k2.5",
+      "model": "opencode-go/deepseek-v4-pro",
       "prompt": "{file:./prompts/auditor.md}",
       "permission": {
         "bash": {
@@ -149,7 +149,7 @@
       }
     },
     "explorer": {
-      "description": "Explorer — Read-only codebase scout and structural analyst. File search, dependency graphs, call chains, import maps. Writes findings to docs/exploration/. Returns only 'complete' or 'error' to caller.",
+      "description": "Explorer — Read-only codebase scout and structural analyst. File search, dependency graphs, call chains, import maps. Writes findings to docs/exploration/. Returns only 'complete' or 'error' to caller. Variations: codebase_explorer, dependency_explorer.",
       "mode": "subagent",
       "model": "opencode-go/deepseek-v4-flash",
       "prompt": "{file:./prompts/explorer.md}",
@@ -177,38 +177,6 @@
         },
         "edit": "deny",
         "task": "deny"
-      }
-    },
-    "rag_architect": {
-      "description": "An expert-level system designer specialized in Retrieval-Augmented Generation (RAG) architectures. Operates with high precision, token efficiency, and a focus on objective goal alignment.",
-      "mode": "primary",
-      "model": "opencode-go/deepseek-v4-pro",
-      "prompt": "{file:./prompts/rag_architect.md}",
-      "permission": {
-        "bash": {
-          "head *": "allow",
-          "wc *": "allow",
-          "cat *": "allow",
-          "git status": "allow",
-          "git diff *": "allow",
-          "git log *": "allow",
-          "*": "ask"
-        },
-        "read": "ask",
-        "write": {
-          "docs/project_notes/*": "ask",
-          "docs/ratings/*": "ask",
-          "*": "ask"
-        },
-        "webfetch": "ask",
-        "websearch": "ask",
-        "task": {
-          "system_thinker": "ask",
-          "implementer": "ask",
-          "auditor": "ask",
-          "explorer": "ask",
-          "*": "ask"
-        }
       }
     }
   }

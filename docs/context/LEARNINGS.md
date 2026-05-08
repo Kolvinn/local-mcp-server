@@ -145,3 +145,53 @@ Violating any of these is a process failure and must be corrected immediately:
 - Every agent records learnings to `docs/learnings/{domain}/{session}.md` after completing work
 - Records: task, key decisions, assumptions, uncertainties, self-assessment
 - Enables future agent instances to build on prior analysis
+
+## 13. Agent Variation Framework
+
+**Agents are generic types with config-driven variations. Prompts stay the same. Variations = model + skills + context injection.**
+
+### Core types (5)
+- Orchestrator (primary, no variations)
+- System Thinker → variations: strategic_thinker, rag_thinker, architect_thinker
+- Implementer → variations: python_implementer, infra_implementer
+- Auditor → variation: code_auditor
+- Explorer → variations: codebase_explorer, dependency_explorer
+
+### Full variation matrix
+See `docs/plans/overhaul/agent-variation-matrix.md` for the complete table with models, skills, and context injection profiles.
+
+### Key rules
+- Variations are configuration, not prompt changes
+- New variations = new config row, zero code or prompt changes
+- Model swaps = model field change, prompts untouched
+- Skill upgrades = swap skills in config, prompts untouched
+- Backlog types: Researcher, Tester (not in MVP)
+
+## 14. File-Based Handoff Protocol
+
+**The orchestrator NEVER reads full content of briefs, specs, or code. It receives 2-3 bullet summaries and file paths. It points agents to files.**
+
+### Flow
+1. User → Orchestrator (goal)
+2. Orchestrator → Thinker variation (writes brief to `docs/briefs/`)
+3. Thinker returns summary → Orchestrator → User (approval gate)
+4. Orchestrator → Architect variation (reads approved brief, writes spec to `docs/specs/`)
+5. Architect returns summary → Orchestrator → User (approval gate)
+6. Orchestrator → Implementer variation (reads approved spec, writes code)
+7. Implementer returns summary → Orchestrator → User (approval gate)
+8. Orchestrator → Auditor variation (reads spec + code, writes findings)
+9. Auditor returns findings → Orchestrator → User (approval gate)
+
+**After every agent completion, the orchestrator bubbles up to the user. No autonomous pipelines.**
+
+### Read/write boundaries per type
+- Thinker reads: `docs/context/*`, `docs/exploration/*`. Never reads source code.
+- Implementer reads: `docs/specs/*`, `docs/context/*`, source code. Never reads briefs.
+- Auditor reads: `docs/specs/*`, source code, `docs/context/conventions.md`. Never reads briefs.
+- Explorer reads: whatever the orchestrator points to. Never reads briefs or specs.
+
+## 15. Retired Agents
+
+- **Reviewer** → absorbed into Auditor (5-check framework supersedes single-dimension review)
+- **Coordinator** → redundant with Orchestrator
+- **RAG Architect** → absorbed into System Thinker as `rag_thinker` variation

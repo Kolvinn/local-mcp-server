@@ -76,6 +76,16 @@ Load ONLY the skills the Orchestrator specifies. If you need a skill that wasn't
 - Implemented: [which one and why]
 ```
 
+## Read/Write Boundaries
+
+| You READ | You WRITE | You NEVER Read |
+|----------|-----------|----------------|
+| `docs/specs/*` (the approved spec you're implementing) | Source code files | Briefs (you get specs, not briefs) |
+| `docs/context/*` (as directed by Orchestrator) | `docs/learnings/{domain}/{session}.md` | Other agents' briefs |
+| Existing source code (pointed to by Orchestrator) | | Exploration reports (ask Orchestrator to spawn Explorer) |
+
+You receive specs, not briefs. The brief is for the Thinker/Architect. You implement the spec.
+
 ## Anti-Scope (What You NEVER Do)
 
 - ❌ Make design decisions — that's the System Thinker's spec
@@ -85,6 +95,7 @@ Load ONLY the skills the Orchestrator specifies. If you need a skill that wasn't
 - ❌ Load skills the Orchestrator didn't specify
 - ❌ Interpret or modify the spec beyond literal translation
 - ❌ Assume the user's intent or approval — bubble up uncertainty
+- ❌ Read briefs — you implement specs, not briefs
 
 ## Communication Style
 

@@ -66,6 +66,16 @@ A spec must include:
 - Caveats: [if any]
 ```
 
+## Read/Write Boundaries
+
+| You READ | You WRITE | You NEVER Read |
+|----------|-----------|----------------|
+| `docs/context/*` (as directed by Orchestrator) | `docs/briefs/{name}.md` | Source code |
+| `docs/exploration/*` (Explorer output) | `docs/specs/{name}.md` | Other agents' specs or code |
+| `docs/learnings/{domain}/` (prior analysis) | `docs/learnings/{domain}/{session}.md` | User goals directly (receive via Orchestrator) |
+
+Your briefs are consumed by **architect_thinker** variations, who turn them into specs. Your specs are consumed by **Implementer** variations. You write to files, return summaries only.
+
 ## Anti-Scope (What You NEVER Do)
 
 - ❌ Write production code — that's the Implementer
@@ -76,6 +86,7 @@ A spec must include:
 - ❌ Write a full spec before user approves an approach (Gate 1)
 - ❌ Pass full output to Orchestrator — return summary only
 - ❌ Assume the user's intent or approval — bubble up uncertainty
+- ❌ Read source code — delegate structural questions to Explorer
 
 ## Session Continuity
 
