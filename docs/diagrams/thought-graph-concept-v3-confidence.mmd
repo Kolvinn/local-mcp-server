@@ -1,0 +1,155 @@
+---
+config: {
+    "theme": "base",
+    "look": "classic",
+    "layout": "dagre",
+    "themeVariables": {
+        "primaryColor": "#4a90d9",
+        "primaryTextColor": "#ffffff",
+        "primaryBorderColor": "#2c6fb6",
+        "secondaryColor": "#f5a623",
+        "secondaryTextColor": "#111111",
+        "secondaryBorderColor": "#d4891a",
+        "tertiaryColor": "#7ed321",
+        "tertiaryTextColor": "#111111",
+        "tertiaryBorderColor": "#5ea81a",
+        "lineColor": "#00bcd4",
+        "errorColor": "#e74c3c",
+        "errorTextColor": "#ffffff",
+        "errorBorderColor": "#c0392b",
+        "memoryColor": "#8e44ad",
+        "memoryTextColor": "#ffffff",
+        "memoryBorderColor": "#6c3483"
+    }
+}
+---
+flowchart TD
+    User(["USER"])
+
+    subgraph DecisionLog["Decision Log (append-only → LangSmith traces)"]
+        DL[("Decision Log")]
+        DL1["what: concept + agent + action"]
+        DL2["when: session + timestamp"]
+        DL3["outcome: success / rework / user-override"]
+    end
+
+    subgraph FutureNote["Future: Training Agent adjusts confidence weights<br/>based on semantically similar questions + outcomes"]
+    end
+
+    subgraph Confidence["Confidence Engine"]
+        direction LR
+        CBar["0.0 ▓▓▓▓▓▓▓▓░░░░ 0.65 1.0"]
+        CExplain["f(coverage, question count, domain spread)"]
+    end
+
+    User -->|"input"| Orch["ORCHESTRATOR"]
+
+    Orch -->|"query: similar past concepts?"| DL
+
+    subgraph Stages["Staged Expansion (confidence proposes, user gates)"]
+        direction TB
+
+        subgraph S1["STAGE 1: WIDE"]
+            direction TB
+            W1["Place root :Concept node"]
+            W2["Expand: for each concept,<br/>identify blocking :Question nodes"]
+            W3["For each question,<br/>generate :Option branches"]
+            W4["Compute confidence:<br/>coverage + question count + domain spread"]
+            W5["Present wide map to user"]
+            W1 --> W2 --> W3 --> W4 --> W5
+        end
+
+        subgraph S2["STAGE 2: DEEP"]
+            direction TB
+            D1["User selects preferred<br/>:Option per question<br/>(or 'explore all')"]
+            D2{":Option type?"}
+            D2 -->|"delegate"| SpawnAgent["Spawn Specialist Agent<br/>with scoped context"]
+            D2 -->|"ask user"| ProbeUser(["Probe User"])
+            D2 -->|"research"| ExploreDocs["Explorer: codebase/docs"]
+            D3["Findings become new nodes<br/>or resolve the question"]
+            D4["Record decision + outcome"]
+            D1 --> D2
+            SpawnAgent --> D3
+            ProbeUser --> D3
+            ExploreDocs --> D3
+            D3 --> D4
+        end
+
+        W5 -->|"user gate: approve wide map?"| Gate1{{"USER GATE"}}
+        Gate1 -->|"approve"| D1
+        Gate1 -->|"expand more"| W2
+        D4 -->|"re-assess confidence"| CBar
+        D4 -->|"unresolved questions remain"| W2
+        D4 -->|"all resolved"| Synthesize
+    end
+
+    subgraph Graph["Thought Graph (GraphRAG + Qdrant)"]
+        direction TB
+        C1[":Concept<br/>'Integrate Qdrant into<br/>GraphRAG via Memgraph'"]
+        Q1[":Question<br/>'How does Qdrant<br/>integrate with GraphRAGs?'"]
+        Q2[":Question<br/>'What Memgraph features<br/>support vector search?'"]
+        ON1[":OptionNode<br/>resolve 'Qdrant+GraphRAG'"]
+        O1a[":Option<br/>'Delegate to Explorer<br/>(qdrant skills)'"]
+        O1b[":Option<br/>'Ask user for<br/>architecture preference'"]
+        O1c[":Option<br/>'Research existing<br/>Qdrant GraphRAG patterns'"]
+        ON2[":OptionNode<br/>resolve 'Memgraph vectors'"]
+        O2a[":Option<br/>'Delegate to Explorer<br/>(memgraph-graph-rag skill)'"]
+        O2b[":Option<br/>'Read Memgraph docs<br/>via context7'"]
+        S[":Static<br/>'nomic-embed-text 768d<br/>already deployed'"]
+
+        C1 -->|"RELIES_ON"| Q1
+        C1 -->|"RELIES_ON"| Q2
+        C1 -->|"INFORMS"| S
+        Q1 -->|"DEPENDS_ON"| ON1
+        Q2 -->|"DEPENDS_ON"| ON2
+        ON1 -->|"HAS_OPTION"| O1a
+        ON1 -->|"HAS_OPTION"| O1b
+        ON1 -->|"HAS_OPTION"| O1c
+        ON2 -->|"HAS_OPTION"| O2a
+        ON2 -->|"HAS_OPTION"| O2b
+    end
+
+    W2 -->|"populate"| Graph
+    W4 -->|"read coverage"| Graph
+    D3 -->|"mutate"| Graph
+    D4 -->|"append"| DL
+
+    ProbeUser -.->|"clarification"| User
+    SpawnAgent -->|"record decision"| DL
+
+    Synthesize["SYNTHESIZE → GATE"]
+    Synthesize -->|"record outcome"| DL
+    Synthesize --> Gate2{{"USER GATE"}}
+
+    style DecisionLog fill:#1a1a2e,stroke:#8e44ad,stroke-width:2px,color:#e0e0e0
+    style FutureNote fill:#1e1e36,stroke:#8e44ad,stroke-width:1px,color:#aaaaaa,stroke-dasharray: 5 5
+    style Confidence fill:#1a1a2e,stroke:#f5a623,stroke-width:2px,color:#e0e0e0
+    style Stages fill:#1a1a2e,stroke:#4a90d9,stroke-width:2px,color:#e0e0e0
+    style S1 fill:#1e1e36,stroke:#4a90d9,stroke-width:1px,color:#e0e0e0
+    style S2 fill:#1e1e36,stroke:#8e44ad,stroke-width:1px,color:#e0e0e0
+    style Graph fill:#1a1a2e,stroke:#7ed321,stroke-width:2px,color:#e0e0e0
+
+    style Orch fill:#4a90d9,stroke:#2c6fb6,color:#fff
+    style DL fill:#95a5a6,stroke:#7f8c8d,color:#fff
+    style CBar fill:#f5a623,stroke:#d4891a,color:#111
+
+    style C1 fill:#4a90d9,stroke:#2c6fb6,color:#fff
+    style Q1 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style Q2 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style ON1 fill:#f5a623,stroke:#d4891a,color:#111
+    style ON2 fill:#f5a623,stroke:#d4891a,color:#111
+    style O1a fill:#f5a623,stroke:#d4891a,color:#111
+    style O1b fill:#f5a623,stroke:#d4891a,color:#111
+    style O1c fill:#f5a623,stroke:#d4891a,color:#111
+    style O2a fill:#f5a623,stroke:#d4891a,color:#111
+    style O2b fill:#f5a623,stroke:#d4891a,color:#111
+    style S fill:#7ed321,stroke:#5ea81a,color:#111
+
+    style W5 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style D1 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style SpawnAgent fill:#8e44ad,stroke:#6c3483,color:#fff
+    style ProbeUser fill:#e74c3c,stroke:#c0392b,color:#fff
+    style ExploreDocs fill:#4a90d9,stroke:#2c6fb6,color:#fff
+    style Synthesize fill:#7ed321,stroke:#5ea81a,color:#111
+    style Gate1 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style Gate2 fill:#e74c3c,stroke:#c0392b,color:#fff

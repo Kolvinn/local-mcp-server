@@ -26,12 +26,8 @@ config: {
 flowchart TD
     User(["USER"])
 
-    subgraph Learnings["Persistent Learnings Store"]
-        direction LR
-        L0[("Weighted<br/>Memory")]
-        L0 --> L1["Prior goal trees<br/>+ resolution paths"]
-        L0 --> L2["Agent success rates<br/>per task type"]
-        L0 --> L3["Pattern matches:<br/>'this looks like X'"]
+    subgraph DecisionLog["Decision Log (append-only)"]
+        DL[("Decision Log<br/>what + when + outcome")]
     end
 
     Orch["ORCHESTRATOR"]
@@ -42,17 +38,16 @@ flowchart TD
 
         subgraph S1["STAGE 1: WIDE"]
             direction TB
-            W1["Query learnings for<br/>similar past goals"]
-            W2["Decompose goal tree<br/>breadth-first"]
-            W3["Place :Question nodes<br/>at unresolved leaves"]
-            W4["Compute: is coverage<br/>satisfactory?"]
-            W1 --> W2 --> W3 --> W4
+            W1["Decompose goal tree<br/>breadth-first"]
+            W2["Place :Question nodes<br/>at unresolved leaves"]
+            W3["Compute: is coverage<br/>satisfactory?"]
+            W1 --> W2 --> W3
         end
 
         subgraph S2["STAGE 2: ASSESS"]
             direction TB
             A1["Evaluate question<br/>distribution + gaps"]
-            A2["Check: all domains<br/>covered? (infra, code, test...)"]
+            A2["Check: all domains<br/>covered?"]
             A3["Present wide map<br/>to user for gate"]
             A1 --> A2 --> A3
         end
@@ -62,17 +57,16 @@ flowchart TD
             D1["For each :Question leaf:<br/>resolve or spawn"]
             D2["Route: User-answerable?<br/>→ probe. Otherwise → agent"]
             D3["Injected findings<br/>become new graph nodes"]
-            D4["Learnings updated:<br/>resolution path scored"]
+            D4["Record decision:<br/>what + agent + outcome"]
             D1 --> D2 --> D3 --> D4
         end
 
-        W4 -->|"gate: user approves<br/>wide map"| A1
+        W3 -->|"gate: user approves<br/>wide map"| A1
         A3 -->|"gate: user approves<br/>deep dive"| D1
-        W4 -->|"insufficient coverage"| W2
+        W3 -->|"insufficient coverage"| W1
     end
 
     Orch -->|"start"| W1
-    Orch <-->|"read/write"| Learnings
 
     subgraph Graph["Thought Graph (GraphRAG + Qdrant)"]
         direction TB
@@ -84,7 +78,7 @@ flowchart TD
         Q1 -.->|"resolved by"| D1g[":Decision"]
     end
 
-    W3 -->|"populate"| Graph
+    W2 -->|"populate"| Graph
     A1 -->|"evaluate"| Graph
     D3 -->|"mutate"| Graph
 
@@ -92,19 +86,20 @@ flowchart TD
     D2 -->|"agent route"| SpawnAgent["Spawn Specialist"]
     AskUser -.->|"clarification"| User
     SpawnAgent -->|"findings"| Graph
-    D4 -->|"record outcome"| L0
+    D4 -->|"append"| DL
 
     A3 -->|"present"| User
     D4 --> Synthesize["SYNTHESIZE → GATE"]
+    Synthesize -->|"record outcome"| DL
 
-    style Learnings fill:#1a1a2e,stroke:#8e44ad,stroke-width:2px,color:#e0e0e0
+    style DecisionLog fill:#1a1a2e,stroke:#8e44ad,stroke-width:2px,color:#e0e0e0
     style Stages fill:#1a1a2e,stroke:#4a90d9,stroke-width:2px,color:#e0e0e0
     style S1 fill:#1e1e36,stroke:#4a90d9,stroke-width:1px,color:#e0e0e0
     style S2 fill:#1e1e36,stroke:#f5a623,stroke-width:1px,color:#e0e0e0
     style S3 fill:#1e1e36,stroke:#8e44ad,stroke-width:1px,color:#e0e0e0
     style Graph fill:#1a1a2e,stroke:#7ed321,stroke-width:2px,color:#e0e0e0
     style Orch fill:#4a90d9,stroke:#2c6fb6,color:#fff
-    style L0 fill:#8e44ad,stroke:#6c3483,color:#fff
+    style DL fill:#95a5a6,stroke:#7f8c8d,color:#fff
     style G fill:#7ed321,stroke:#5ea81a,color:#111
     style Q1 fill:#e74c3c,stroke:#c0392b,color:#fff
     style Q2 fill:#e74c3c,stroke:#c0392b,color:#fff

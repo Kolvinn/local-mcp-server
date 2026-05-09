@@ -55,6 +55,12 @@
       "skillPath": "config/skills/deep-agents-orchestration/SKILL.md",
       "computedHash": "1570f8d88e1233edc3306d28224604172b016aedba0ced2efa2dd8e38e28ae62"
     },
+    "file-organizer": {
+      "source": "composiohq/awesome-claude-skills",
+      "sourceType": "github",
+      "skillPath": "file-organizer/SKILL.md",
+      "computedHash": "1b03d0f0879230671fba161b92d732c9ae7e947bfe061cbf008d39fa9df1ed8b"
+    },
     "find-skills": {
       "source": "vercel-labs/skills",
       "sourceType": "github",

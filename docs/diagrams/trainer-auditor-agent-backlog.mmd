@@ -1,0 +1,84 @@
+---
+config: {
+    "theme": "base",
+    "look": "classic",
+    "layout": "dagre",
+    "themeVariables": {
+        "primaryColor": "#4a90d9",
+        "primaryTextColor": "#ffffff",
+        "primaryBorderColor": "#2c6fb6",
+        "secondaryColor": "#f5a623",
+        "secondaryTextColor": "#111111",
+        "secondaryBorderColor": "#d4891a",
+        "tertiaryColor": "#7ed321",
+        "tertiaryTextColor": "#111111",
+        "tertiaryBorderColor": "#5ea81a",
+        "lineColor": "#00bcd4",
+        "errorColor": "#e74c3c",
+        "errorTextColor": "#ffffff",
+        "errorBorderColor": "#c0392b",
+        "memoryColor": "#8e44ad",
+        "memoryTextColor": "#ffffff",
+        "memoryBorderColor": "#6c3483"
+    }
+}
+---
+flowchart TD
+    User(["USER"])
+
+    subgraph Sources["Data Sources"]
+        direction LR
+        DL[("Decision Log<br/>(append-only)")]
+        LS[("LangSmith Traces<br/>(if granular enough)")]
+    end
+
+    subgraph TrainerFlow["Trainer / Auditor Agent (BACKLOG)"]
+        direction TB
+
+        subgraph Ingest["1. INGEST"]
+            I1["Pull decision log entries<br/>since last audit"]
+            I2["Pull LangSmith traces<br/>for same time window"]
+            I1 --> I2
+        end
+
+        subgraph Review["2. REVIEW (with User)"]
+            R1["Present each decision:<br/>context + agent + action + outcome"]
+            R2["User classifies:<br/>good / okay / bad"]
+            R3["(Future: agent auto-classifies<br/>based on outcome patterns)"]
+            R1 --> R2 --> R3
+        end
+
+        subgraph Produce["3. PRODUCE"]
+            P1["Generate edge weight<br/>adjustments for thought graph"]
+            P2["Generate per-agent<br/>performance baselines"]
+            P3["Surface anti-patterns:<br/>'agent X always fails on Y'"]
+            P1 --> P2 --> P3
+        end
+
+        Ingest --> Review --> Produce
+    end
+
+    Sources --> Ingest
+    User -->|"classify decisions"| R2
+
+    subgraph Outputs["Outputs (feed back into system)"]
+        direction LR
+        O1["Updated edge weights<br/>→ Thought Graph"]
+        O2["Agent reliability scores<br/>→ Orchestrator spawn logic"]
+        O3["Anti-pattern library<br/>→ Deep Guard node"]
+    end
+
+    Produce --> Outputs
+
+    style Sources fill:#1a1a2e,stroke:#8e44ad,stroke-width:2px,color:#e0e0e0
+    style TrainerFlow fill:#1a1a2e,stroke:#8e44ad,stroke-width:2px,color:#e0e0e0
+    style Ingest fill:#1e1e36,stroke:#4a90d9,stroke-width:1px,color:#e0e0e0
+    style Review fill:#1e1e36,stroke:#f5a623,stroke-width:1px,color:#e0e0e0
+    style Produce fill:#1e1e36,stroke:#7ed321,stroke-width:1px,color:#e0e0e0
+    style Outputs fill:#1a1a2e,stroke:#7ed321,stroke-width:2px,color:#e0e0e0
+    style DL fill:#95a5a6,stroke:#7f8c8d,color:#fff
+    style LS fill:#95a5a6,stroke:#7f8c8d,color:#fff
+    style R2 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style O1 fill:#7ed321,stroke:#5ea81a,color:#111
+    style O2 fill:#7ed321,stroke:#5ea81a,color:#111
+    style O3 fill:#7ed321,stroke:#5ea81a,color:#111

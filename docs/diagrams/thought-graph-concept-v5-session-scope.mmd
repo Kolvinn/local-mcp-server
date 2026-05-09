@@ -1,0 +1,229 @@
+---
+config: {
+    "theme": "base",
+    "look": "classic",
+    "layout": "dagre",
+    "themeVariables": {
+        "primaryColor": "#4a90d9",
+        "primaryTextColor": "#ffffff",
+        "primaryBorderColor": "#2c6fb6",
+        "secondaryColor": "#f5a623",
+        "secondaryTextColor": "#111111",
+        "secondaryBorderColor": "#d4891a",
+        "tertiaryColor": "#7ed321",
+        "tertiaryTextColor": "#111111",
+        "tertiaryBorderColor": "#5ea81a",
+        "lineColor": "#00bcd4",
+        "errorColor": "#e74c3c",
+        "errorTextColor": "#ffffff",
+        "errorBorderColor": "#c0392b",
+        "memoryColor": "#8e44ad",
+        "memoryTextColor": "#ffffff",
+        "memoryBorderColor": "#6c3483"
+    }
+}
+---
+flowchart TD
+    subgraph Persistent["PROJECT THOUGHT GRAPH (persistent, cross-session)"]
+        direction TB
+        C_root[":Concept
+        'GraphRAG Memory Manager'"]
+        C_auth[":Concept
+        'Add auth to system'"]
+        C_qdrant[":Concept
+        'Integrate Qdrant into
+        GraphRAG via Memgraph'"]
+        C_port[":Concept
+        'Fix PORT=8001 bug'"]
+
+        C_root -->|"RELIES_ON"| C_qdrant
+        C_root -->|"RELIES_ON"| C_auth
+        C_root -->|"RELIES_ON"| C_port
+
+        Q_q1[":Question
+        'How does Qdrant
+        integrate with GraphRAGs?'"]
+        Q_q2[":Question
+        'What Memgraph features
+        support vector search?'"]
+        Q_port[":Question
+        'Which .env files
+        reference PORT=8001?'"]
+
+        C_qdrant -->|"RELIES_ON"| Q_q1
+        C_qdrant -->|"RELIES_ON"| Q_q2
+        C_port -->|"RELIES_ON"| Q_port
+
+        D_old[":Decision
+        'Use nomic-embed-text 768d'
+        (previous session)"]
+        C_qdrant -->|"INFORMS"| D_old
+
+        ON_q1[":OptionNode
+        3 options, UNDECIDED"]
+        ON_q2[":OptionNode
+        2 options, UNDECIDED"]
+        Q_q1 -->|"DEPENDS_ON"| ON_q1
+        Q_q2 -->|"DEPENDS_ON"| ON_q2
+    end
+
+    subgraph Ephemeral["CURRENT SESSION (ephemeral)"]
+        direction TB
+
+        SessionGoal["SESSION GOAL:
+        'Integrate Qdrant into
+        GraphRAG via Memgraph'
+        (positioned within thought graph)"]
+
+        User(["USER"])
+
+        User -->|"input"| ScopeCheck{"Within current
+        session scope?"}
+
+        ScopeCheck -->|"on-scope"| PreStage["PRE-STAGE:
+        classify + lookup"]
+        ScopeCheck -->|"off-scope (tangent)"| Tangent{"Relevance?"}
+        ScopeCheck -->|"direct order"| DirectCheck{"Conflicts
+        with known facts?"}
+
+        Tangent -->|"'also fix PORT bug'"| TangentAsk["Orchestrator:
+        'This is outside our current
+        session goal (Qdrant+Memgraph).
+        Should I update the thought graph
+        with this? Or spawn a new
+        session goal?'"]
+        TangentAsk --> UserChoice{{"USER"}}
+        UserChoice -->|"update map only"| Persistent
+        UserChoice -->|"make new session goal"| NewGoal["Register as sibling
+        :Concept in thought graph"]
+        UserChoice -->|"ignore for now"| User
+
+        DirectCheck -->|"no conflict"| ExecuteDirect["Execute directly"]
+        DirectCheck -->|"conflict / no capability"| ConfirmDirect(["Ask user to confirm"])
+
+        ConfirmDirect -.->|"confirm?"| User
+        NewGoal --> Persistent
+
+        PreStage -->|"specific ID / general"| Orchestrator["ORCHESTRATOR"]
+        ExecuteDirect --> Orchestrator
+
+        subgraph Stages["Staged Expansion (confidence proposes, user gates)"]
+            direction TB
+
+            subgraph WIDE["STAGE 1: WIDE"]
+                direction TB
+                W1["Expand session-scoped
+                concepts within thought graph"]
+                W2["Identify blocking :Question nodes
+                (from thought graph + new)"]
+                W3["Generate :Option branches
+                per question"]
+                W4["Compute confidence"]
+                W5["Present wide map to user"]
+                W1 --> W2 --> W3 --> W4 --> W5
+            end
+
+            subgraph DEEP["STAGE 2: DEEP"]
+                direction TB
+                D1["User selects :Option
+                per question"]
+                D2{":Option type?"}
+                D2 -->|"delegate"| SpawnAgent["Spawn Specialist Agent"]
+                D2 -->|"ask user"| ProbeUser(["Probe User"])
+                D2 -->|"research"| ExploreDocs["Explorer: codebase/docs"]
+                D3["Findings → new nodes
+                or resolve question"]
+                D4["Record decision + outcome"]
+                D1 --> D2
+                SpawnAgent --> D3
+                ProbeUser --> D3
+                ExploreDocs --> D3
+                D3 --> D4
+            end
+
+            W5 -->|"user gate"| Gate1{{"USER GATE"}}
+            Gate1 -->|"approve"| D1
+            Gate1 -->|"expand more"| W2
+            D4 -->|"unresolved remain"| W2
+            D4 -->|"all resolved"| Synthesize
+        end
+
+        Orchestrator --> W1
+        W2 -->|"read + populate"| Persistent
+        W4 -->|"read coverage"| Persistent
+        D3 -->|"mutate"| Persistent
+        D4 -->|"append"| DL[("Decision Log")]
+
+        ProbeUser -.->|"clarification"| User
+        SpawnAgent -->|"record"| DL
+
+        Synthesize["SYNTHESIZE → GATE"]
+        Synthesize --> Gate2{{"USER GATE"}}
+        Synthesize -->|"record"| DL
+
+        SessionGoal -.->|"positions session within"| C_qdrant
+    end
+
+    subgraph ConfidenceBar["Confidence (drives stage proposals)"]
+        CBar["0.0 ▓▓▓▓▓▓▓▓░░░░ 0.65 1.0"]
+    end
+
+    W4 -->|"feed"| CBar
+    D4 -->|"re-assess"| CBar
+
+    subgraph SessionEnd["SESSION END"]
+        SE1["Merge session outcomes
+        into persistent thought graph"]
+        SE2["Update :Option statuses:
+        SELECTED, REJECTED, UNDECIDED"]
+        SE3["Session goal status → resolved
+        or 'has open questions'"]
+        SE1 --> SE2 --> SE3
+    end
+
+    Gate2 -->|"session complete"| SessionEnd
+    SessionEnd -->|"updated"| Persistent
+
+    subgraph Future["Future: Training Agent (backlog)"]
+        FT["Consumes Decision Log + LangSmith traces
+        → user classifies good/okay/bad
+        → produces edge weights + agent reliability scores"]
+    end
+
+    style Persistent fill:#1a1a2e,stroke:#7ed321,stroke-width:3px,color:#e0e0e0
+    style Ephemeral fill:#1a1a2e,stroke:#00bcd4,stroke-width:3px,color:#e0e0e0
+    style ConfidenceBar fill:#1a1a2e,stroke:#f5a623,stroke-width:2px,color:#e0e0e0
+    style Future fill:#1e1e36,stroke:#8e44ad,stroke-width:1px,color:#aaaaaa,stroke-dasharray: 5 5
+    style SessionEnd fill:#1a1a2e,stroke:#8e44ad,stroke-width:2px,color:#e0e0e0
+
+    style WIDE fill:#1e1e36,stroke:#4a90d9,stroke-width:1px,color:#e0e0e0
+    style DEEP fill:#1e1e36,stroke:#8e44ad,stroke-width:1px,color:#e0e0e0
+
+    style C_root fill:#7ed321,stroke:#5ea81a,color:#111
+    style C_auth fill:#4a90d9,stroke:#2c6fb6,color:#fff
+    style C_qdrant fill:#4a90d9,stroke:#2c6fb6,color:#fff
+    style C_port fill:#4a90d9,stroke:#2c6fb6,color:#fff
+    style Q_q1 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style Q_q2 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style Q_port fill:#e74c3c,stroke:#c0392b,color:#fff
+    style ON_q1 fill:#f5a623,stroke:#d4891a,color:#111
+    style ON_q2 fill:#f5a623,stroke:#d4891a,color:#111
+    style D_old fill:#f5a623,stroke:#d4891a,color:#111
+
+    style Orchestrator fill:#4a90d9,stroke:#2c6fb6,color:#fff
+    style SessionGoal fill:#00bcd4,stroke:#0097a7,color:#fff
+    style TangentAsk fill:#00bcd4,stroke:#0097a7,color:#fff
+    style UserChoice fill:#e74c3c,stroke:#c0392b,color:#fff
+    style ScopeCheck fill:#00bcd4,stroke:#0097a7,color:#fff
+    style DL fill:#95a5a6,stroke:#7f8c8d,color:#fff
+    style CBar fill:#f5a623,stroke:#d4891a,color:#111
+
+    style SpawnAgent fill:#8e44ad,stroke:#6c3483,color:#fff
+    style ProbeUser fill:#e74c3c,stroke:#c0392b,color:#fff
+    style ExploreDocs fill:#4a90d9,stroke:#2c6fb6,color:#fff
+    style Synthesize fill:#7ed321,stroke:#5ea81a,color:#111
+    style Gate1 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style Gate2 fill:#e74c3c,stroke:#c0392b,color:#fff
+
+    style W5 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style D1 fill:#e74c3c,stroke:#c0392b,color:#fff

@@ -26,24 +26,20 @@ config: {
 flowchart TD
     User(["USER"])
 
+    subgraph DecisionLog["Decision Log (append-only)"]
+        direction TB
+        DL[("Decision Log")]
+        DL --> DL1["what: goal + agent + action"]
+        DL --> DL2["when: session + timestamp"]
+        DL --> DL3["outcome: success / rework / user-override"]
+    end
+
     subgraph ConfidenceCore["Confidence Engine"]
         direction TB
         Conf["CONFIDENCE<br/>0.0 ←─────→ 1.0"]
         ConfThresh{"≥ threshold<br/>for next stage?"}
         Conf --> ConfThresh
     end
-
-    subgraph Learnings["Learnings Store"]
-        direction TB
-        L1["Past decisions:<br/>weighted by outcome"]
-        L2["Pattern library:<br/>similar goal structures"]
-        L3["Agent performance:<br/>per-variation reliability"]
-        L1 --> LearnOut["modifies confidence<br/>+ edge weights"]
-        L2 --> LearnOut
-        L3 --> LearnOut
-    end
-
-    LearnOut -->|"nudge confidence ±δ"| Conf
 
     User -->|"input / answer / confidence override"| Orch["ORCHESTRATOR"]
 
@@ -58,7 +54,6 @@ flowchart TD
     end
 
     Orch --> WIDE
-    Orch -->|"query learnings"| Learnings
 
     subgraph Graph["Thought Graph (GraphRAG + Qdrant)"]
         direction TB
@@ -86,17 +81,19 @@ flowchart TD
 
     AskUser -.->|"answer"| User
     SpawnAgent -->|"findings → new nodes"| Graph
-    SpawnAgent -->|"outcome → learning"| Learnings
+    SpawnAgent -->|"record decision"| DL
 
     ConfThresh -->|"Yes"| SYNTH["SYNTHESIZE"]
     SYNTH --> GATE["GATE: user approval"]
+    GATE -->|"record outcome"| DL
 
+    style DecisionLog fill:#1a1a2e,stroke:#8e44ad,stroke-width:2px,color:#e0e0e0
     style ConfidenceCore fill:#1a1a2e,stroke:#f5a623,stroke-width:2px,color:#e0e0e0
-    style Learnings fill:#1a1a2e,stroke:#8e44ad,stroke-width:2px,color:#e0e0e0
     style Stages fill:#1a1a2e,stroke:#4a90d9,stroke-width:2px,color:#e0e0e0
     style Graph fill:#1a1a2e,stroke:#7ed321,stroke-width:2px,color:#e0e0e0
     style Orch fill:#4a90d9,stroke:#2c6fb6,color:#fff
     style Conf fill:#f5a623,stroke:#d4891a,color:#111
+    style DL fill:#95a5a6,stroke:#7f8c8d,color:#fff
     style WIDE fill:#4a90d9,stroke:#2c6fb6,color:#fff
     style ASSESS fill:#f5a623,stroke:#d4891a,color:#111
     style DEEP fill:#8e44ad,stroke:#6c3483,color:#fff
