@@ -1,0 +1,53 @@
+{
+  "Bug": {
+    "Component": ["AFFECTS"],
+    "CodeEntity": ["LOCATED_IN"],
+    "Configuration": ["TRIGGERED_BY"],
+    "Environment": ["REPRODUCED_IN"],
+    "Session": ["DISCOVERED_IN"],
+    "Bug": ["DUPLICATE_OF", "CAUSED_BY"]
+  },
+  "Decision": {
+    "Bug": ["RESOLVES"],
+    "Component": ["SELECTS"],
+    "Goal": ["SATISFIES"],
+    "Decision": ["SUPERSEDES", "CONFLICTS_WITH"],
+    "CodeEntity": ["IMPLEMENTED_BY"]
+  },
+  "Goal": {
+    "Goal": ["PARENT_OF", "BLOCKS", "SUPERSEDES"],
+    "Bug": ["BLOCKED_BY"],
+    "Decision": ["MOTIVATED"]
+  },
+  "Agent": {
+    "Bug": ["REPORTED"],
+    "Decision": ["PROPOSED"],
+    "CodeEntity": ["OWNS"],
+    "Session": ["PARTICIPATED_IN"]
+  },
+  "CodeEntity": {
+    "CodeEntity": ["CALLS", "EXTENDS", "IMPLEMENTS", "OVERRIDES", "DEPENDS_ON"],
+    "Component": ["BELONGS_TO"],
+    "Configuration": ["READS"]
+  },
+  "Component": {
+    "Component": ["DEPENDS_ON", "HOSTS"],
+    "Environment": ["DEPLOYED_IN"]
+  },
+  "Configuration": {
+    "Environment": ["DEFINED_IN"],
+    "Component": ["SETS"]
+  },
+  "Session": {
+    "Session": ["FOLLOWS"],
+    "Document": ["PRODUCED"],
+    "Goal": ["WORKED_ON"]
+  },
+  "Document": {
+    "Decision": ["RECORDS"],
+    "CodeEntity": ["DOCUMENTS"]
+  },
+  "Chunk": {
+    "*": ["EXTRACTED_TO"]
+  }
+}
