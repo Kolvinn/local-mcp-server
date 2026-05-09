@@ -11,7 +11,7 @@
 8. **Self-reinforce rules** when given lots of information — bullet-point the rules before continuing
 
 ## Active Diagram
-**`docs/diagrams/thought-graph-concept-v4-confidence.mmd`** — the working version.
+**`docs/diagrams/thought-graph-concept-v5-session-scope.mmd`** — persistent thought graph vs ephemeral session, scope checking, tangent detection.
 
 ## Key External References (point to, don't rewrite)
 - Agent variation matrix: `docs/plans/overhaul/agent-variation-matrix.md` — 5 core types, config-driven variations, file-based handoff protocol, read/write boundaries

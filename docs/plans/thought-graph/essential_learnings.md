@@ -12,6 +12,7 @@
 - **Confidence proposes, user gates** — not auto-progression. The orchestrator computes confidence and suggests moving to next stage; user confirms or rejects.
 - **Three input types** — Specific (by ID, Qdrant lookup), General (semantic search), Direct Order (check for conflicts, then execute or ask). This pre-stage gates everything before WIDE expansion.
 - **WIDE before DEEP is the core philosophy** — the orchestrator must map the full goal tree breadth-first before diving into any single branch. Confidence bar measures coverage completeness as the signal for "wide enough."
+- **Thought graph ≠ session** — thought graph is persistent (cross-session project brain), sessions are ephemeral lenses. Orchestrator positions each session within the thought graph and detects scope violations (tangents). At session end, outcomes merge back into the persistent graph.
 
 ## Explorer Delegation
 - **Use correct agent type** — `explorer` (our defined agent), not `explore` (thin search). Lesson already recorded in `docs/context/LEARNINGS.md` §16 but worth reinforcing.

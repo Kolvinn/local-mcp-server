@@ -17,13 +17,19 @@ An evolving **thought graph** (stored in GraphRAG: Qdrant + graph DB) that the o
 | `thought-graph-concept-v2-staged.mmd` | Explicit WIDE→ASSESS→DEEP gates with user approval |
 | `thought-graph-concept-v2-weighted.mmd` | Weighted graph edges + confidence hybrid |
 | `thought-graph-concept-v3-confidence.mmd` | Refined: new node taxonomy, concrete example, user gates |
-| **`thought-graph-concept-v4-confidence.mmd`** | **Active version**: adds PRE-STAGE input classification |
+| `thought-graph-concept-v4-confidence.mmd` | Adds PRE-STAGE input classification (superseded) |
+| **`thought-graph-concept-v5-session-scope.mmd`** | **Active version**: persistent thought graph vs ephemeral session, scope checking, tangent detection, session-end merge |
 | `trainer-auditor-agent-backlog.mmd` | Trainer/Auditor backlog concept (INGEST→REVIEW→PRODUCE) |
 
 ### Research
 - `docs/exploration/langsmith-trace-granularity.md` — LangSmith traces are granular enough to serve as decision log; don't need custom storage.
 
-## Active Design (v4)
+## Active Design (v5)
+
+### Core Distinction
+- **Thought Graph**: persistent, cross-session project brain (all concepts, questions, decisions)
+- **Session**: ephemeral lens positioned within the thought graph
+- **Orchestrator**: constantly checks scope — is input on-scope (proceed), off-scope/tangent (ask user: update map? new session goal? ignore?), or direct order?
 
 ### Node Taxonomy
 - **`:Concept`** — thing being explored (requirement, idea, goal)
@@ -43,10 +49,12 @@ An evolving **thought graph** (stored in GraphRAG: Qdrant + graph DB) that the o
 - Concept → Static: `INFORMS`
 
 ### Flow Stages
-1. **PRE-STAGE**: Classify user input (specific ID / general / direct order), Qdrant lookup, user confirms scope
-2. **WIDE**: Expand concept tree, place questions, generate options, compute confidence, user gate
-3. **DEEP**: Resolve questions via selected options (delegate agent / probe user / research), record decisions
-4. **SYNTHESIZE → GATE**: Reduce to approach, user approval
+1. **Scope Check**: On-scope / off-scope (tangent) / direct order — positioned within thought graph
+2. **PRE-STAGE**: Classify input (specific ID / general), Qdrant lookup, user confirms scope
+3. **WIDE**: Expand session-scoped concepts, place questions, generate options, compute confidence, user gate
+4. **DEEP**: Resolve questions via selected options, record decisions
+5. **SYNTHESIZE → GATE**: Reduce to approach, user approval
+6. **Session End**: Merge outcomes into persistent thought graph, update option statuses
 
 ### Key Mechanics
 - **Confidence bar** (0.0–1.0) computed from coverage, question count, domain spread — proposes stage transitions, user approves
