@@ -19,12 +19,18 @@ from langchain_litellm import ChatLiteLLM
 from langchain_litellm import ChatLiteLLMRouter
 
 LITE_LLM_URL = os.getenv("LITE_LLM_URL","http://litellm:4000")
-LITE_LLM_API_KEY = os.getenv("LITE_LLM_API_KEY","sk-12342134123412341234")
+LITE_LLM_API_KEY = os.getenv("LITE_LLM_API_KEY","sk-1234")
 model = ChatLiteLLM(
     api_base=LITE_LLM_URL,
-    api_key=LITE_LLM_API_KEY,
-    model="llama3.1"
+    api_key="sk-1234",
+    model="openai/llama3.1",
 )
+
+# model = ChatLiteLLM(
+#     api_base=LITE_LLM_URL,
+#     api_key="sk-1234",
+#     model="openai/deepseek-flash"
+# )
 @tool
 def print_hello() -> str:
     """prints hello and returns hello as a string. Used as a test tool"""
@@ -47,39 +53,6 @@ agent = create_deep_agent(
 )
 
 
-#ef run_turn(turn, messages):
-    #sub_turn = 1
-   # while True:
-        
-        # messages.append(response.choices[0].message)
-        # reasoning_content = response.choices[0].message.reasoning_content
-        # content = response.choices[0].message.content
-        # tool_calls = response.choices[0].message.tool_calls
-        # print(f"Turn {turn}.{sub_turn}\n{reasoning_content=}\n{content=}\n{tool_calls=}")
-        #break
-        # # If there is no tool calls, then the model should get a final answer and we need to stop the loop
-        # if tool_calls is None:
-        #     break
-        # for tool in tool_calls:
-        #     tool_function = TOOL_CALL_MAP[tool.function.name]
-        #     tool_result = tool_function(**json.loads(tool.function.arguments))
-        #     print(f"tool result for {tool.function.name}: {tool_result}\n")
-        #     messages.append({
-        #         "role": "tool",
-        #         "tool_call_id": tool.id,
-        #         "content": tool_result,
-        #     })
-        # sub_turn += 1
-    #print()
-
-
-
-# The user starts a question
-turn = 1
-messages = [{
-    "role": "user",
-    "content": "do 2 things. one. say hi - then invoke print tool"
-}]
 msgs2 = {"messages": [{"role": "user", "content": "do 2 things. one. say hi - then invoke print tool"}]}
 # for response in agent.stream(msgs2,config=config):
 #     print(response)
@@ -119,3 +92,29 @@ print(agent.invoke(msgs2,config=config))
 # # messages = [system_msg, human_msg]
 # # response = model.invoke(messages)  
 # print(response)
+
+
+#ef run_turn(turn, messages):
+    #sub_turn = 1
+   # while True:
+        
+        # messages.append(response.choices[0].message)
+        # reasoning_content = response.choices[0].message.reasoning_content
+        # content = response.choices[0].message.content
+        # tool_calls = response.choices[0].message.tool_calls
+        # print(f"Turn {turn}.{sub_turn}\n{reasoning_content=}\n{content=}\n{tool_calls=}")
+        #break
+        # # If there is no tool calls, then the model should get a final answer and we need to stop the loop
+        # if tool_calls is None:
+        #     break
+        # for tool in tool_calls:
+        #     tool_function = TOOL_CALL_MAP[tool.function.name]
+        #     tool_result = tool_function(**json.loads(tool.function.arguments))
+        #     print(f"tool result for {tool.function.name}: {tool_result}\n")
+        #     messages.append({
+        #         "role": "tool",
+        #         "tool_call_id": tool.id,
+        #         "content": tool_result,
+        #     })
+        # sub_turn += 1
+    #print()

@@ -1,0 +1,69 @@
+---
+config: {
+    "theme": "base",
+    "look": "classic",
+    "layout": "dagre",
+    "themeVariables": {
+        "primaryColor": "#4a90d9",
+        "primaryTextColor": "#ffffff",
+        "primaryBorderColor": "#2c6fb6",
+        "secondaryColor": "#f5a623",
+        "secondaryTextColor": "#111111",
+        "secondaryBorderColor": "#d4891a",
+        "tertiaryColor": "#7ed321",
+        "tertiaryTextColor": "#111111",
+        "tertiaryBorderColor": "#5ea81a",
+        "lineColor": "#00bcd4",
+        "errorColor": "#e74c3c",
+        "errorTextColor": "#ffffff",
+        "errorBorderColor": "#c0392b",
+        "memoryColor": "#8e44ad",
+        "memoryTextColor": "#ffffff",
+        "memoryBorderColor": "#6c3483"
+    }
+}
+---
+flowchart TD
+    User(["USER"])
+
+    User -->|"input / answer"| Orch["ORCHESTRATOR"]
+
+    subgraph Graph["Thought Graph (GraphRAG + Qdrant)"]
+        direction TB
+        G[":Goal<br/>top-level requirement"]
+        G -->|"PARENT_OF"| SG1[":Goal<br/>sub-goal"]
+        G -->|"PARENT_OF"| SG2[":Goal<br/>sub-goal"]
+        SG1 -->|"BLOCKED_BY"| Q1[":Question<br/>unresolved leaf"]
+        SG1 -->|"MOTIVATED"| D1[":Decision<br/>known answer"]
+        SG2 -->|"BLOCKED_BY"| Q2[":Question<br/>unresolved leaf"]
+        SG2 -->|"DEPENDS_ON"| SG1
+        D1 -->|"SATISFIES"| SG1
+        Q1 -.->|"pending"| RouteQ1[" "]
+        Q2 -.->|"pending"| RouteQ2[" "]
+    end
+
+    Orch -->|"query: where does<br/>this goal fit?"| Graph
+    Orch -->|"expand: decompose<br/>into sub-goals + questions"| Graph
+    Orch -->|"update: add nodes<br/>+ edges as discovered"| Graph
+
+    Graph -->|"return: known goals<br/>decisions, gaps"| Orch
+
+    RouteQ1 --> RouteDecision{"Can User<br/>Answer?"}
+    RouteQ2 --> RouteDecision
+
+    RouteDecision -->|"Yes"| AskUser(["Probe User"])
+    RouteDecision -->|"No"| SpawnAgent["Spawn Specialist Agent<br/>with scoped context"]
+
+    AskUser -.->|"clarification"| User
+    SpawnAgent -->|"findings injected<br/>as new graph nodes"| Graph
+
+    style Graph fill:#1a1a2e,stroke:#4a90d9,stroke-width:2px,color:#e0e0e0
+    style Orch fill:#4a90d9,stroke:#2c6fb6,color:#fff
+    style G fill:#7ed321,stroke:#5ea81a,color:#111
+    style SG1 fill:#7ed321,stroke:#5ea81a,color:#111
+    style SG2 fill:#7ed321,stroke:#5ea81a,color:#111
+    style D1 fill:#f5a623,stroke:#d4891a,color:#111
+    style Q1 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style Q2 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style AskUser fill:#e74c3c,stroke:#c0392b,color:#fff
+    style SpawnAgent fill:#8e44ad,stroke:#6c3483,color:#fff

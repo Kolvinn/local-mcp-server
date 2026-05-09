@@ -1,0 +1,112 @@
+---
+config: {
+    "theme": "base",
+    "look": "classic",
+    "layout": "dagre",
+    "themeVariables": {
+        "primaryColor": "#4a90d9",
+        "primaryTextColor": "#ffffff",
+        "primaryBorderColor": "#2c6fb6",
+        "secondaryColor": "#f5a623",
+        "secondaryTextColor": "#111111",
+        "secondaryBorderColor": "#d4891a",
+        "tertiaryColor": "#7ed321",
+        "tertiaryTextColor": "#111111",
+        "tertiaryBorderColor": "#5ea81a",
+        "lineColor": "#00bcd4",
+        "errorColor": "#e74c3c",
+        "errorTextColor": "#ffffff",
+        "errorBorderColor": "#c0392b",
+        "memoryColor": "#8e44ad",
+        "memoryTextColor": "#ffffff",
+        "memoryBorderColor": "#6c3483"
+    }
+}
+---
+flowchart TD
+    User(["USER"])
+
+    subgraph Learnings["Learnings → Weight Modifier"]
+        direction LR
+        LM[("Persistent<br/>Learnings")]
+        LM -->|"reinforce / decay"| EdgeWeights["Edge weight<br/>adjustments"]
+    end
+
+    Orch["ORCHESTRATOR"]
+    User -->|"input / answer"| Orch
+
+    subgraph ConfidenceBar["Confidence Bar (drives stage transitions)"]
+        direction LR
+        C0["0.0"] --> CBar["▓▓▓▓▓▓▓▓▓▓░░░░░ 0.65"]
+        CBar --> C1["1.0"]
+        CThresh1["WIDE→ASSESS: 0.6"]
+        CThresh2["ASSESS→DEEP: 0.8"]
+    end
+
+    subgraph Graph["Thought Graph (weighted edges)"]
+        direction TB
+        G[":Goal<br/>'Add auth'"]
+
+        G -->|"w=0.9"| SG1[":Goal<br/>'choose provider'"]
+        G -->|"w=0.7"| SG2[":Goal<br/>'implement login'"]
+        G -->|"w=0.4"| SG3[":Goal<br/>'write tests'"]
+
+        SG1 -->|"w=1.0"| D1[":Decision<br/>'Use Clerk'"]
+        SG2 -->|"w=0.3"| Q1[":Question<br/>'Which framework?'"]
+        SG2 -->|"w=0.5"| Q2[":Question<br/>'Session store?'"]
+        SG3 -->|"w=0.2"| Q3[":Question<br/>'Coverage target?'"]
+
+        D1 -->|"SATISFIES"| SG1
+    end
+
+    Orch -->|"query + expand"| Graph
+    Orch -->|"consult"| LM
+
+    subgraph Traversal["Orchestrator Traversal Logic"]
+        direction TB
+        T1["1. Start at root goal"]
+        T2["2. Expand children<br/>ordered by edge weight<br/>(high weight first)"]
+        T3["3. At each leaf:<br/>if weight < threshold → :Question<br/>if weight ≥ threshold → resolved"]
+        T4["4. Confidence = f(coverage,<br/>avg leaf weight, learnings match)"]
+        T5["5. If confidence ≥ stage threshold<br/>→ advance stage"]
+        T1 --> T2 --> T3 --> T4 --> T5
+        T5 -->|"not yet"| T2
+    end
+
+    EdgeWeights -->|"modify"| Graph
+    T4 -->|"feed"| CBar
+
+    subgraph Resolution["Resolution (DEEP stage only)"]
+        direction TB
+        R1["Select lowest-weight<br/>:Question leaves first"]
+        R2{"Answerable<br/>by user?"}
+        R2 -->|"Yes"| AskUser(["Probe User"])
+        R2 -->|"No"| SpawnAgent["Spawn Specialist"]
+        AskUser -.->|"answer"| User
+        SpawnAgent -->|"findings → new nodes<br/>weight updated"| Graph
+        SpawnAgent -->|"outcome scored"| LM
+    end
+
+    T5 -->|"DEEP stage"| R1
+
+    T5 -->|"all resolved"| Synth["SYNTHESIZE → GATE"]
+
+    style Learnings fill:#1a1a2e,stroke:#8e44ad,stroke-width:2px,color:#e0e0e0
+    style ConfidenceBar fill:#1a1a2e,stroke:#f5a623,stroke-width:2px,color:#e0e0e0
+    style Graph fill:#1a1a2e,stroke:#7ed321,stroke-width:2px,color:#e0e0e0
+    style Traversal fill:#1a1a2e,stroke:#4a90d9,stroke-width:2px,color:#e0e0e0
+    style Resolution fill:#1a1a2e,stroke:#8e44ad,stroke-width:2px,color:#e0e0e0
+    style Orch fill:#4a90d9,stroke:#2c6fb6,color:#fff
+    style LM fill:#8e44ad,stroke:#6c3483,color:#fff
+    style CBar fill:#f5a623,stroke:#d4891a,color:#111
+    style G fill:#7ed321,stroke:#5ea81a,color:#111
+    style SG1 fill:#7ed321,stroke:#5ea81a,color:#111
+    style SG2 fill:#7ed321,stroke:#5ea81a,color:#111
+    style SG3 fill:#7ed321,stroke:#5ea81a,color:#111
+    style D1 fill:#f5a623,stroke:#d4891a,color:#111
+    style Q1 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style Q2 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style Q3 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style Synth fill:#7ed321,stroke:#5ea81a,color:#111
+    style AskUser fill:#e74c3c,stroke:#c0392b,color:#fff
+    style SpawnAgent fill:#8e44ad,stroke:#6c3483,color:#fff

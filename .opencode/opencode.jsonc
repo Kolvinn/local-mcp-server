@@ -54,7 +54,7 @@
     },
     "system_thinker": {
       "description": "System Thinker — Spawnable template for domain design. Loads skills per delegation. Produces design options (wide) and pseudocode specs (deep). Records learnings. Never writes production code or talks to users. Variations: strategic_thinker, rag_thinker, architect_thinker.",
-      "mode": "subagent",
+      "mode": "all",
       "model": "opencode-go/deepseek-v4-pro",
       "prompt": "{file:./prompts/system_thinker.md}",
       "permission": {
@@ -73,8 +73,8 @@
           "tee *": "ask",
           "*": "ask"
         },
-        "read": "deny",
-        "write": "deny",
+        "read": "ask",
+        "write": "ask",
         "glob": "allow",
         "grep": "allow",
         "webfetch": "deny",

@@ -1,0 +1,107 @@
+---
+config: {
+    "theme": "base",
+    "look": "classic",
+    "layout": "dagre",
+    "themeVariables": {
+        "primaryColor": "#4a90d9",
+        "primaryTextColor": "#ffffff",
+        "primaryBorderColor": "#2c6fb6",
+        "secondaryColor": "#f5a623",
+        "secondaryTextColor": "#111111",
+        "secondaryBorderColor": "#d4891a",
+        "tertiaryColor": "#7ed321",
+        "tertiaryTextColor": "#111111",
+        "tertiaryBorderColor": "#5ea81a",
+        "lineColor": "#00bcd4",
+        "errorColor": "#e74c3c",
+        "errorTextColor": "#ffffff",
+        "errorBorderColor": "#c0392b",
+        "memoryColor": "#8e44ad",
+        "memoryTextColor": "#ffffff",
+        "memoryBorderColor": "#6c3483"
+    }
+}
+---
+flowchart TD
+    User(["USER"])
+
+    subgraph ConfidenceCore["Confidence Engine"]
+        direction TB
+        Conf["CONFIDENCE<br/>0.0 ←─────→ 1.0"]
+        ConfThresh{"≥ threshold<br/>for next stage?"}
+        Conf --> ConfThresh
+    end
+
+    subgraph Learnings["Learnings Store"]
+        direction TB
+        L1["Past decisions:<br/>weighted by outcome"]
+        L2["Pattern library:<br/>similar goal structures"]
+        L3["Agent performance:<br/>per-variation reliability"]
+        L1 --> LearnOut["modifies confidence<br/>+ edge weights"]
+        L2 --> LearnOut
+        L3 --> LearnOut
+    end
+
+    LearnOut -->|"nudge confidence ±δ"| Conf
+
+    User -->|"input / answer / confidence override"| Orch["ORCHESTRATOR"]
+
+    subgraph Stages["Staged Expansion"]
+        direction LR
+        WIDE["WIDE<br/>map all sub-goals<br/>identify all questions"]
+        ASSESS["ASSESS<br/>evaluate coverage<br/>check confidence"]
+        DEEP["DEEP<br/>resolve questions<br/>spawn agents"]
+        WIDE -->|"confidence ≥ 0.7"| ASSESS
+        ASSESS -->|"confidence ≥ 0.85"| DEEP
+        ASSESS -->|"confidence < 0.85"| WIDE
+    end
+
+    Orch --> WIDE
+    Orch -->|"query learnings"| Learnings
+
+    subgraph Graph["Thought Graph (GraphRAG + Qdrant)"]
+        direction TB
+        G[":Goal"]
+        G -->|"PARENT_OF"| SG1[":Goal"]
+        G -->|"PARENT_OF"| SG2[":Goal"]
+        SG1 -->|"BLOCKED_BY"| Q1[":Question"]
+        SG1 -->|"MOTIVATED"| D1[":Decision"]
+        SG2 -->|"BLOCKED_BY"| Q2[":Question"]
+        SG2 -->|"DEPENDS_ON"| SG1
+    end
+
+    WIDE -->|"expand"| Graph
+    ASSESS -->|"evaluate coverage"| Graph
+    DEEP -->|"resolve"| Graph
+
+    Graph -->|"coverage metrics<br/>gap analysis"| Conf
+
+    Q1 -->|"unresolved"| DEEP
+    Q2 -->|"unresolved"| DEEP
+
+    DEEP -->|"route question"| RouteQ{"User or<br/>Agent?"}
+    RouteQ -->|"User"| AskUser(["Probe User"])
+    RouteQ -->|"Agent"| SpawnAgent["Spawn Specialist<br/>with scoped context"]
+
+    AskUser -.->|"answer"| User
+    SpawnAgent -->|"findings → new nodes"| Graph
+    SpawnAgent -->|"outcome → learning"| Learnings
+
+    ConfThresh -->|"Yes"| SYNTH["SYNTHESIZE"]
+    SYNTH --> GATE["GATE: user approval"]
+
+    style ConfidenceCore fill:#1a1a2e,stroke:#f5a623,stroke-width:2px,color:#e0e0e0
+    style Learnings fill:#1a1a2e,stroke:#8e44ad,stroke-width:2px,color:#e0e0e0
+    style Stages fill:#1a1a2e,stroke:#4a90d9,stroke-width:2px,color:#e0e0e0
+    style Graph fill:#1a1a2e,stroke:#7ed321,stroke-width:2px,color:#e0e0e0
+    style Orch fill:#4a90d9,stroke:#2c6fb6,color:#fff
+    style Conf fill:#f5a623,stroke:#d4891a,color:#111
+    style WIDE fill:#4a90d9,stroke:#2c6fb6,color:#fff
+    style ASSESS fill:#f5a623,stroke:#d4891a,color:#111
+    style DEEP fill:#8e44ad,stroke:#6c3483,color:#fff
+    style G fill:#7ed321,stroke:#5ea81a,color:#111
+    style Q1 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style Q2 fill:#e74c3c,stroke:#c0392b,color:#fff
+    style SYNTH fill:#7ed321,stroke:#5ea81a,color:#111
+    style GATE fill:#e74c3c,stroke:#c0392b,color:#fff

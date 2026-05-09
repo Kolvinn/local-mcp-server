@@ -139,6 +139,12 @@
       "skillPath": "memgraph-python-query-modules/SKILL.md",
       "computedHash": "60ad05c03292ad944495b6c3591f9b56b966eca292b5ce36273ef702e125fcf0"
     },
+    "mermaid-diagram-specialist": {
+      "source": "davila7/claude-code-templates",
+      "sourceType": "github",
+      "skillPath": "cli-tool/components/skills/development/mermaid-diagram-specialist/SKILL.md",
+      "computedHash": "fca22cc061f67f9c0c5426eba66be83d0491e898fbe99bf8b4682dffbed0ac26"
+    },
     "mermaid-diagrams": {
       "source": "softaworks/agent-toolkit",
       "sourceType": "github",
