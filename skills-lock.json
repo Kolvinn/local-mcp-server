@@ -253,6 +253,13 @@
       "skillPath": "cli-tool/components/skills/ai-research/rag-qdrant/SKILL.md",
       "computedHash": "7d759309b0c22b2d6097562d6d349fdac38cfc661fcfbe658f158444403310da"
     },
+    "redis-development": {
+      "source": "redis/agent-skills",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "skills/redis-development/SKILL.md",
+      "computedHash": "d27174128aebe583d5ca15747389c84e286daed589bfa2b99847392a012719b5"
+    },
     "sequential-thinking": {
       "source": "mrgoonie/claudekit-skills",
       "sourceType": "github",
