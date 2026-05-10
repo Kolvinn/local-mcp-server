@@ -1,0 +1,157 @@
+{
+  "version": 1,
+  "updated_at": "2026-05-10T00:00:00Z",
+  "source": "docs/rag-dev/taxonomy-ex.md + docs/briefs/taxonomy-redis-schema.md",
+  "category_types": ["knowledge", "objective", "learning", "thought"],
+  "categories": {
+    "knowledge": {
+      "description": "Static facts, references, specifications. Merges former concept + execution.",
+      "subcats": {
+        "definition": "active",
+        "domain_rule": "active",
+        "entity_property": "active",
+        "api_spec": "active",
+        "parameter_map": "active",
+        "env_config": "active",
+        "access_protocol": "active"
+      },
+      "tags": {
+        "foundational": "active",
+        "deprecated": "active",
+        "expert_level": "active",
+        "cross_domain": "active",
+        "production": "active",
+        "sandbox": "active",
+        "read_only": "active",
+        "destructive": "active"
+      },
+      "keywords": {
+        "subject_uri": "active",
+        "parent_concept": "active",
+        "endpoint_url": "active",
+        "auth_type": "active",
+        "rate_limit": "active",
+        "schema_version": "active"
+      }
+    },
+    "objective": {
+      "description": "Goals, tasks, constraints on outcomes. Formerly planning.",
+      "subcats": {
+        "goal": "active",
+        "sub_task": "active",
+        "milestone": "active",
+        "condition": "active",
+        "blocker": "active"
+      },
+      "tags": {
+        "p0": "active",
+        "p1": "active",
+        "sequential": "active",
+        "parallel": "active",
+        "high_uncertainty": "active"
+      },
+      "keywords": {
+        "prerequisite_id": "active",
+        "outcome_target": "active",
+        "estimated_effort": "active"
+      }
+    },
+    "learning": {
+      "description": "Lessons, experiences, behavioral patterns. Merges former learning + experience.",
+      "subcats": {
+        "technical_lesson": "active",
+        "behavior": "active",
+        "preference": "active",
+        "constraint": "active",
+        "error_trace": "active",
+        "observation": "active",
+        "user_feedback": "active",
+        "action_result": "active"
+      },
+      "tags": {
+        "direct_input": "active",
+        "inferred": "active",
+        "high_stability": "active",
+        "volatile": "active",
+        "success": "active",
+        "failure": "active",
+        "halting_error": "active",
+        "optimized_path": "active"
+      },
+      "keywords": {
+        "workflow_style": "active",
+        "syntax_preference": "active",
+        "user_limit": "active",
+        "tool_id": "active",
+        "latency_ms": "active",
+        "token_usage": "active",
+        "correction_id": "active"
+      }
+    },
+    "thought": {
+      "description": "Unresolved inquiries, investigations, embryonic ideas. Broader than questions — includes vague ideas and sensed connections.",
+      "subcats": {
+        "open_question": "active",
+        "investigation": "active",
+        "hypothesis": "active",
+        "clarification": "active",
+        "vague_idea": "active",
+        "connection_hint": "active"
+      },
+      "tags": {
+        "nascent": "active",
+        "formulating": "active",
+        "researching": "active",
+        "stalled": "active",
+        "resolved": "active",
+        "actionable": "active",
+        "speculative": "active",
+        "confirmed": "active"
+      },
+      "keywords": {
+        "question_text": "active",
+        "related_concept": "active",
+        "confidence_level": "active",
+        "blocker_for": "active",
+        "evidence_for": "active",
+        "evidence_against": "active"
+      }
+    }
+  },
+  "node_types": {
+    "Bug": "active",
+    "Decision": "active",
+    "Goal": "active",
+    "Component": "active",
+    "Chunk": "active",
+    "Knowledge": "active",
+    "Objective": "active",
+    "Learning": "active",
+    "Thought": "active",
+    "Agent": "staged",
+    "Session": "staged",
+    "Document": "staged",
+    "CodeEntity": "staged",
+    "Environment": "staged"
+  },
+  "edge_types": [
+    "AFFECTS", "RESOLVES", "SATISFIES", "PARENT_OF", "DEPENDS_ON",
+    "BELONGS_TO", "RELATED_TO", "EXTRACTED_TO", "PRODUCED", "MOTIVATED",
+    "FOLLOWS", "BLOCKS", "TRIGGERED_BY", "LOCATED_IN", "IMPLEMENTS",
+    "DOCUMENTS", "REPORTS", "OWNS", "HOSTS", "CONFIGURES"
+  ],
+  "payload_indexes": {
+    "category_type": "keyword",
+    "category": "keyword",
+    "tags": "keyword_list",
+    "status": "keyword",
+    "graph_node_id": "keyword",
+    "source": "keyword"
+  },
+  "collection_config": {
+    "collection_name": "memory_chunks",
+    "vector_size": 768,
+    "distance_metric": "COSINE",
+    "embedding_model": "nomic-embed-text"
+  }
+}
