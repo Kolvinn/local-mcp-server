@@ -1,0 +1,133 @@
+---
+config: {
+    "theme": "base",
+    "look": "classic",
+    "layout": "dagre",
+    "themeVariables": {
+        "primaryColor": "#4a90d9",
+        "primaryTextColor": "#ffffff",
+        "primaryBorderColor": "#2c6fb6",
+        "secondaryColor": "#f5a623",
+        "secondaryTextColor": "#111111",
+        "secondaryBorderColor": "#d4891a",
+        "tertiaryColor": "#7ed321",
+        "tertiaryTextColor": "#111111",
+        "tertiaryBorderColor": "#5ea81a",
+        "lineColor": "#00bcd4",
+        "errorColor": "#e74c3c",
+        "errorTextColor": "#ffffff",
+        "errorBorderColor": "#c0392b",
+        "memoryColor": "#8e44ad",
+        "memoryTextColor": "#ffffff",
+        "memoryBorderColor": "#6c3483"
+    }
+}
+---
+stateDiagram-v2
+    [*] --> InputReceived
+
+    state InputReceived {
+        [*] --> entry
+        --
+        entry : content (str, required)
+        entry : category_type (str, optional)
+        entry : category (str, optional)
+        entry : tags (list[str], optional)
+        entry : source (str, required)
+    }
+
+    InputReceived --> Validating : graph.invoke()
+
+    state Validating {
+        [*] --> loaded_schema
+        loaded_schema --> checking
+        --
+        loaded_schema : Load taxonomy-schema.json
+        checking : Are category_type AND category present?
+    }
+
+    Validating --> CallingLLM : no, fields missing
+    Validating --> Validated : yes, all fields present
+    Validating --> ErrorInvalid : validation fails
+
+    state CallingLLM {
+        [*] --> infer
+        infer --> retry
+        --
+        infer : deepseek-flash classifies content
+        infer : returns category_type, category, tags, key_words
+        retry : on parse failure, retry once with error context
+    }
+
+    CallingLLM --> Validated : LLM succeeds
+    CallingLLM --> ErrorLLM : retry fails
+
+    state Validated {
+        [*] --> ready
+        --
+        ready : category_type (str, now set)
+        ready : category (str, now set)
+        ready : tags (list[str], now set)
+        ready : key_words (list[str], now set)
+        ready : content, source (unchanged)
+    }
+
+    Validated --> BuildingPayload
+
+    state BuildingPayload {
+        [*] --> assemble
+        --
+        assemble : Generate chunk_id (UUID4)
+        assemble : Assemble payload dict
+        assemble : graph_node_id = None
+        assemble : status = active, version = 1
+        assemble : timestamps (created_at, updated_at)
+        assemble : Wrap into PointStruct (no vectors yet)
+    }
+
+    BuildingPayload --> Embedding
+
+    state Embedding {
+        [*] --> generate_vectors
+        generate_vectors --> upsert
+        --
+        generate_vectors : dense (nomic-embed, 768-dim)
+        generate_vectors : sparse (SPLADE)
+        generate_vectors : multi (ColBERT, 128-dim)
+        upsert : UPSERT into Qdrant collection memory_chunks
+    }
+
+    Embedding --> Ingested : upsert succeeds
+    Embedding --> ErrorQdrant : Qdrant or embedding failure
+
+    state Ingested {
+        [*] --> result
+        --
+        result : chunk_id (str)
+        result : ingested_at (str, ISO8601)
+        result : error = None
+    }
+
+    Ingested --> [*]
+
+    state ErrorInvalid {
+        [*] --> err1
+        --
+        err1 : error = invalid classification
+    }
+
+    state ErrorLLM {
+        [*] --> err2
+        --
+        err2 : error = LLM unparseable after retry
+    }
+
+    state ErrorQdrant {
+        [*] --> err3
+        --
+        err3 : error = Qdrant/embedding failure
+    }
+
+    ErrorInvalid --> [*]
+    ErrorLLM --> [*]
+    ErrorQdrant --> [*]

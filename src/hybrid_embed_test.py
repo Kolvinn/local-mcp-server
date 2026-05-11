@@ -35,7 +35,7 @@ LITE_LLM_URL = os.getenv("LITE_LLM_URL","http://litellm:4000")
 LITE_LLM_API_KEY = os.getenv("LITE_LLM_API_KEY","sk-1234")
 DIM_SIZE = 768
 
-
+client.delete_collection(collection_name)
 if not client.collection_exists(collection_name):
     client.create_collection(
         collection_name,
@@ -115,40 +115,46 @@ class Embedder(BaseModel):
 
 embedder = Embedder()
 
-documents: list[str] = [
-"Chandrayaan-3 is India's third lunar mission",
-"It aimed to land a rover on the Moon's surface - joining the US, China and Russia",
-"The mission is a follow-up to Chandrayaan-2, which had partial success",
-"Chandrayaan-3 will be launched by the Indian Space Research Organisation (ISRO)",
-"The estimated cost of the mission is around $35 million",
-"It will carry instruments to study the lunar surface and atmosphere",
-"Chandrayaan-3 landed on the Moon's surface on 23rd August 2023",
-"It consists of a lander named Vikram and a rover named Pragyan similar to Chandrayaan-2. Its propulsion module would act like an orbiter.",
-"The propulsion module carries the lander and rover configuration until the spacecraft is in a 100-kilometre (62 mi) lunar orbit",
-"The mission used GSLV Mk III rocket for its launch",
-"Chandrayaan-3 was launched from the Satish Dhawan Space Centre in Sriharikota",
-"Chandrayaan-3 was launched earlier in the year 2023",
-]
+
 #res = embed_response = litellm_embed.embed_documents(texts=documents)
 
 
-
-points = (
-    PointStruct(
-        id=uuid.uuid4(),
-        vector={
-            "dense": embedder.embed(row,type=EmbedType.DENSE),
-            "sparse": embedder.embed(row,type=EmbedType.SPARSE),
-            "multi": embedder.embed(row,type=EmbedType.LATE_INTERACTION),
-        }
+def create_points():
+    documents: list[str] = [
+    "Chandrayaan-3 is India's third lunar mission",
+    "It aimed to land a rover on the Moon's surface - joining the US, China and Russia",
+    "The mission is a follow-up to Chandrayaan-2, which had partial success",
+    "Chandrayaan-3 will be launched by the Indian Space Research Organisation (ISRO)",
+    "The estimated cost of the mission is around $35 million",
+    "It will carry instruments to study the lunar surface and atmosphere",
+    "Chandrayaan-3 landed on the Moon's surface on 23rd August 2023",
+    "It consists of a lander named Vikram and a rover named Pragyan similar to Chandrayaan-2. Its propulsion module would act like an orbiter.",
+    "The propulsion module carries the lander and rover configuration until the spacecraft is in a 100-kilometre (62 mi) lunar orbit",
+    "The mission used GSLV Mk III rocket for its launch",
+    "Chandrayaan-3 was launched from the Satish Dhawan Space Centre in Sriharikota",
+    "Chandrayaan-3 was launched earlier in the year 2023",
+    ]
+    points = (
+        PointStruct(
+            id=uuid.uuid4(),
+            vector={
+                "dense": embedder.embed(row,type=EmbedType.DENSE),
+                "sparse": embedder.embed(row,type=EmbedType.SPARSE),
+                "multi": embedder.embed(row,type=EmbedType.LATE_INTERACTION),
+            },
+            payload={
+                "page_content": row, 
+                "source": "chandrayaan_data.csv",
+                "timestamp": "2023-08-23"
+            }
+        )
+        for row in documents
     )
-    for row in documents
-)
-client.upload_points(
-    collection_name=collection_name,
-    points=points,
-    batch_size=25
-)
+    client.upload_points(
+        collection_name=collection_name,
+        points=points,
+        batch_size=25
+    )
 
 def hybrid_search(query:str):
     prefetch = [
@@ -182,7 +188,7 @@ def hybrid_search(query:str):
     )
 
     print(results.points)
-
+create_points()
 hybrid_search("books with time travel")
 # sparse_embeddings_list: list[SparseEmbedding] = list(
 #     model.embed(documents, batch_size=6)

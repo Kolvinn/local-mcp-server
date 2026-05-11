@@ -116,7 +116,8 @@ This means a **metadata field registry** must exist — a record mapping each pa
 ```python
 {
     "chunk_id":       str,       # UUID — immutable identity
-    "graph_node_id":  str,       # e.g. "bug-42" — bidirectional link
+    "graph_node_id":  str,       # e.g. "bug-42" — bidirectional link,
+    "content:         str,
     "session_id":     str,       # which session produced this
     "created_at":     str,       # ISO8601 timestamp of first ingestion
     "updated_at":     str,       # ISO8601 timestamp of last modification
