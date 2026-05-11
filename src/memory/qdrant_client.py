@@ -1,334 +1,196 @@
-"""Qdrant vector store client wrapper.
+"""Qdrant vector store client for the Memory Manager.
 
-Provides a thin wrapper around the ``qdrant-client`` Python SDK for
-collection management, point upsert, search, scroll, and count operations.
-All configuration values come from environment variables per CON-003.
-
-Usage::
-
-    from memory.qdrant_client import QdrantClient
-
-    client = QdrantClient()
-    client.create_collection()
-    client.upsert(points=[{...}])
-    results = client.search(query_vector=[0.1, 0.2, ...], limit=5)
-    total = client.count()
+Provides module-level functions for collection management and point upsert.
+All configuration is read from environment variables.
 """
 
 from __future__ import annotations
 
 import logging
 import os
-from typing import Any
 
 from qdrant_client import QdrantClient as _QdrantClient
 from qdrant_client.models import (
     Distance,
-    FieldCondition,
-    Filter,
-    MatchValue,
-    PayloadSchemaType,
+    HnswConfigDiff,
+    Modifier,
+    MultiVectorComparator,
+    MultiVectorConfig,
     PointStruct,
+    SparseVectorParams,
     VectorParams,
 )
+
+from . import taxonomy_loader
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Known embedding model → vector dimension mapping
+# Configuration (from environment)
 # ---------------------------------------------------------------------------
-# Extend this mapping as new models are introduced.  If a model is not listed
-# a warning is emitted and a default of 768 is used (nomic-embed-text size).
-_EMBEDDING_DIMENSIONS: dict[str, int] = {
-    "nomic-embed-text": 768,
-    "text-embedding-ada-002": 1536,
-    "text-embedding-3-small": 1536,
-    "text-embedding-3-large": 3072,
-    "all-MiniLM-L6-v2": 384,
-    "all-mpnet-base-v2": 768,
-}
 
-# Payload fields that require a KEYWORD index per §4.1 / VAL-003.
-_PAYLOAD_INDEX_FIELDS: tuple[str, ...] = (
-    "category",
-    "tags",
-    "status",
-    "graph_node_id",
-    "validated_at",
-    "version",
-    "source",
-)
-
+QDRANT_HOST: str = os.getenv("QDRANT_HOST", "qdrant")
+QDRANT_PORT: int = int(os.getenv("QDRANT_PORT", "6333"))
+COLLECTION_NAME: str = os.getenv("COLLECTION_NAME", "memory_chunks")
+DENSE_DIM: int = int(os.getenv("DENSE_DIM", "768"))
+LI_DIM: int = int(os.getenv("LI_DIM", "128"))
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Error classes
 # ---------------------------------------------------------------------------
 
 
-def _get_collection_name() -> str:
-    """Read ``QDRANT_COLLECTION_NAME`` from env (default ``memory_chunks``)."""
-    return os.getenv("QDRANT_COLLECTION_NAME", "memory_chunks")
+class QdrantError(ConnectionError):
+    """Raised when Qdrant is unreachable or an upsert is rejected."""
 
 
-def _get_vector_size() -> int:
-    """Derive vector dimensions from ``EMBEDDING_MODEL`` env var.
+# ---------------------------------------------------------------------------
+# Singleton client
+# ---------------------------------------------------------------------------
 
-    Falls back to 768 (nomic-embed-text) when the model name is not
-    recognised.
+_client: _QdrantClient | None = None
+
+
+def get_qdrant_client() -> _QdrantClient:
+    """Return the module-level singleton ``QdrantClient``.
+
+    The client is lazily created on first call and reused thereafter.
+    Host and port are read from environment variables.
     """
-    model = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
-    dim = _EMBEDDING_DIMENSIONS.get(model)
-    if dim is None:
-        logger.warning(
-            "Unknown embedding model %r, defaulting to 768 dimensions. "
-            "Consider adding it to _EMBEDDING_DIMENSIONS in %s.",
-            model,
-            __name__,
-        )
-        return 768
-    return dim
-
-
-def _dict_to_filter(filter_dict: dict[str, Any] | None) -> Filter | None:
-    """Convert a simple dict filter to a :class:`Filter` object.
-
-    Supports the following shorthand::
-
-        {"category": "bug"}              → must match value exactly
-        {"category": "bug", "status": "active"}  → AND of all conditions
-
-    Returns ``None`` when *filter_dict* is ``None`` or empty, which is
-    equivalent to "no filter" in the Qdrant API.
-    """
-    if not filter_dict:
-        return None
-
-    conditions: list[FieldCondition] = []
-    for key, value in filter_dict.items():
-        conditions.append(
-            FieldCondition(key=key, match=MatchValue(value=value))
-        )
-    return Filter(must=conditions)
-
-
-def _scored_point_to_dict(
-    point: Any,  # qdrant_client.http.models.models.ScoredPoint
-) -> dict[str, Any]:
-    """Convert a ``ScoredPoint`` to a plain dict for the public API."""
-    result: dict[str, Any] = {
-        "id": point.id,
-        "score": point.score,
-        "payload": point.payload or {},
-    }
-    if point.vector is not None:
-        result["vector"] = point.vector
-    return result
-
-
-def _record_to_dict(
-    record: Any,  # qdrant_client.http.models.models.Record
-) -> dict[str, Any]:
-    """Convert a ``Record`` to a plain dict for the public API."""
-    result: dict[str, Any] = {
-        "id": record.id,
-        "payload": record.payload or {},
-    }
-    if record.vector is not None:
-        result["vector"] = record.vector
-    return result
+    global _client  # noqa: PLW0603
+    if _client is None:
+        try:
+            _client = _QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+        except Exception as exc:
+            raise QdrantError(
+                f"Failed to connect to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}: {exc}"
+            ) from exc
+    return _client
 
 
 # ---------------------------------------------------------------------------
-# Public wrapper
+# Collection management
 # ---------------------------------------------------------------------------
 
 
-class QdrantClient:
-    """Thin wrapper around the ``qdrant-client`` Python SDK.
+def ensure_collection_exists() -> None:
+    """Create the ``memory_chunks`` collection and payload indexes if needed.
 
-    All configuration is read from environment variables:
+    If the collection already exists the function is a no-op (idempotent).
+    Payload indexes that already exist are silently skipped.
 
-    * ``QDRANT_HOST`` — default ``localhost``
-    * ``QDRANT_PORT`` — default ``6333``
-    * ``QDRANT_COLLECTION_NAME`` — default ``memory_chunks``
-    * ``EMBEDDING_MODEL`` — default ``nomic-embed-text``
+    Raises:
+        QdrantError: If Qdrant is unreachable.
+        RuntimeError: If collection creation fails (propagated from Qdrant).
     """
+    client = get_qdrant_client()
 
-    def __init__(self) -> None:
-        host = os.getenv("QDRANT_HOST", "qdrant")
-        port = int(os.getenv("QDRANT_PORT", "6333"))
-        self._collection_name = _get_collection_name()
-        self._client = _QdrantClient(host=host, port=port)
-        logger.info(
-            "QdrantClient initialized — host=%s:%d, collection=%s",
-            host,
-            port,
-            self._collection_name,
-        )
-
-    # ------------------------------------------------------------------
-    # Collection management
-    # ------------------------------------------------------------------
-
-    def create_collection(self) -> None:
-        """Create the Qdrant collection if it does not already exist.
-
-        Vector dimensions are derived from ``EMBEDDING_MODEL`` and the
-        distance metric is always Cosine.
-
-        .. note::
-
-            Payload indexes are **not** created here — call
-            :meth:`create_payload_indexes` after the first upsert to
-            comply with CON-005 (avoid indexing an empty collection).
-        """
-        if self._client.collection_exists(self._collection_name):
-            logger.info(
-                "Collection %r already exists — skipping creation.",
-                self._collection_name,
-            )
+    try:
+        if client.collection_exists(COLLECTION_NAME):
+            logger.info("Collection %r already exists — skipping creation.", COLLECTION_NAME)
             return
+    except Exception as exc:
+        raise QdrantError(
+            f"Qdrant unreachable while checking collection existence: {exc}"
+        ) from exc
 
-        vector_size = _get_vector_size()
-        self._client.create_collection(
-            collection_name=self._collection_name,
-            vectors_config=VectorParams(
-                size=vector_size,
-                distance=Distance.COSINE,
-            ),
+    try:
+        client.create_collection(
+            collection_name=COLLECTION_NAME,
+            vectors_config={
+                "dense": VectorParams(
+                    size=DENSE_DIM,
+                    distance=Distance.COSINE,
+                ),
+                "multi": VectorParams(
+                    size=LI_DIM,
+                    distance=Distance.COSINE,
+                    multivector_config=MultiVectorConfig(
+                        comparator=MultiVectorComparator.MAX_SIM,
+                    ),
+                    hnsw_config=HnswConfigDiff(m=0),
+                ),
+            },
+            sparse_vectors_config={
+                "sparse": SparseVectorParams(modifier=Modifier.IDF),
+            },
         )
         logger.info(
-            "Created collection %r (size=%d, distance=Cosine).",
-            self._collection_name,
-            vector_size,
+            "Created collection %r (dense=%d, multi=%d, sparse=IDF).",
+            COLLECTION_NAME,
+            DENSE_DIM,
+            LI_DIM,
         )
+    except Exception as exc:
+        raise RuntimeError(
+            f"Failed to create collection {COLLECTION_NAME}: {exc}"
+        ) from exc
 
-    def create_payload_indexes(self) -> None:
-        """Create KEYWORD payload indexes for the fields listed in §4.1.
+    # Create payload indexes from taxonomy
+    _create_payload_indexes(client)
 
-        Per CON-005 this should be called **after** the first upsert to
-        avoid indexing an empty collection.
-        """
-        for field in _PAYLOAD_INDEX_FIELDS:
-            try:
-                self._client.create_payload_index(
-                    collection_name=self._collection_name,
-                    field_name=field,
-                    field_schema=PayloadSchemaType.KEYWORD,
-                )
-                logger.debug("Created payload index on field %r.", field)
-            except Exception:
-                logger.warning(
-                    "Payload index on field %r may already exist — skipping.",
-                    field,
-                    exc_info=True,
-                )
 
-    # ------------------------------------------------------------------
-    # Data operations
-    # ------------------------------------------------------------------
+def _create_payload_indexes(client: _QdrantClient) -> None:
+    """Create payload indexes from the taxonomy schema.
 
-    def upsert(self, points: list[dict[str, Any]]) -> None:
-        """Insert or replace points into the collection (idempotent).
+    Duplicate index errors are caught and silently ignored.
+    """
+    try:
+        taxonomy = taxonomy_loader.load_taxonomy()
+    except Exception as exc:
+        logger.warning("Could not load taxonomy for payload indexes: %s", exc)
+        return
 
-        Args:
-            points: List of point dicts.  Each dict must have the keys
-                ``id`` (chunk_id), ``vector`` (list[float]), and
-                ``payload`` (dict of metadata).
-
-        Raises:
-            ValueError: If any point is missing a required key.
-        """
-        point_structs: list[PointStruct] = []
-        for i, p in enumerate(points):
-            point_id = p.get("id")
-            vector = p.get("vector")
-            payload = p.get("payload")
-            if point_id is None or vector is None:
-                raise ValueError(
-                    f"Point at index {i} is missing required key(s). "
-                    "Each point must have 'id', 'vector', and 'payload'."
-                )
-            point_structs.append(
-                PointStruct(
-                    id=point_id,
-                    vector=vector,
-                    payload=payload or {},
-                )
+    indexes = taxonomy_loader.get_payload_indexes(taxonomy)
+    for field_name, index_type in indexes:
+        try:
+            client.create_payload_index(
+                collection_name=COLLECTION_NAME,
+                field_name=field_name,
+                field_schema=index_type,
+            )
+            logger.debug("Created payload index on field %r (%s).", field_name, index_type)
+        except Exception:
+            logger.debug(
+                "Payload index on field %r may already exist — skipping.", field_name,
             )
 
-        self._client.upsert(
-            collection_name=self._collection_name,
-            points=point_structs,
+
+# ---------------------------------------------------------------------------
+# Data operations
+# ---------------------------------------------------------------------------
+
+
+def upsert_point(point: PointStruct) -> str:
+    """Upsert a single ``PointStruct`` into the collection.
+
+    Args:
+        point: The point to upsert.  Must have a ``payload`` dict containing
+            a ``"chunk_id"`` key.
+
+    Returns:
+        The ``chunk_id`` from the point's payload as confirmation.
+
+    Raises:
+        QdrantError: If Qdrant is unreachable.
+        ValueError: If *point* has no payload or no ``"chunk_id"`` in payload.
+        RuntimeError: If the upsert is rejected by Qdrant.
+    """
+    if point.payload is None or "chunk_id" not in point.payload:
+        raise ValueError(
+            "Point must have a payload with a 'chunk_id' key."
+        )
+
+    client = get_qdrant_client()
+    try:
+        client.upsert(
+            collection_name=COLLECTION_NAME,
+            points=[point],
             wait=True,
         )
-        logger.debug("Upserted %d point(s).", len(point_structs))
+    except Exception as exc:
+        raise QdrantError(
+            f"Failed to upsert point {point.id} into {COLLECTION_NAME}: {exc}"
+        ) from exc
 
-    def search(
-        self,
-        query_vector: list[float],
-        limit: int = 10,
-        filter: dict[str, Any] | None = None,  # noqa: A002
-    ) -> list[dict[str, Any]]:
-        """Vector similarity search.
-
-        Args:
-            query_vector: The query embedding vector.
-            limit: Maximum number of results to return (default 10).
-            filter: Optional dict of payload field filters.  All
-                conditions are combined with AND (``must``).  Example::
-
-                    {"category": "bug", "status": "active"}
-
-        Returns:
-            List of result dicts, each containing ``id``, ``score``,
-            ``payload``, and optionally ``vector``.
-        """
-        qfilter = _dict_to_filter(filter)
-        response = self._client.query_points(
-            collection_name=self._collection_name,
-            query=query_vector,
-            query_filter=qfilter,
-            limit=limit,
-            with_payload=True,
-            with_vectors=False,
-        )
-        return [_scored_point_to_dict(p) for p in response.points]
-
-    def scroll(
-        self,
-        filter: dict[str, Any] | None = None,  # noqa: A002
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
-        """Paginated point retrieval.
-
-        Args:
-            filter: Optional dict of payload field filters (AND
-                semantics).
-            limit: Maximum number of points to return (default 100).
-
-        Returns:
-            List of point dicts, each containing ``id``, ``payload``,
-            and optionally ``vector``.
-        """
-        sfilter = _dict_to_filter(filter)
-        records, _ = self._client.scroll(
-            collection_name=self._collection_name,
-            scroll_filter=sfilter,
-            limit=limit,
-            with_payload=True,
-            with_vectors=False,
-        )
-        return [_record_to_dict(r) for r in records]
-
-    def count(self) -> int:
-        """Return the total number of points in the collection.
-
-        Returns:
-            The exact point count.
-        """
-        result = self._client.count(
-            collection_name=self._collection_name,
-            exact=True,
-        )
-        return result.count
+    return str(point.payload["chunk_id"])

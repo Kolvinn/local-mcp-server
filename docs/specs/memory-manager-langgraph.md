@@ -119,6 +119,7 @@ CLASS: Embedder
         DENSE_MODEL: str          (default "openai/nomic-embed")
         SPARSE_MODEL: str         (default "prithivida/Splade_PP_en_v1")
         LI_MODEL: str             (default "answerdotai/answerai-colbert-small-v1")
+        LLM_MODEL: str            (default "deepseek/deepseek-flash")   # classification LLM
         DIM_SIZE: int = 768
         LI_DIM_SIZE: int = 128
 
@@ -156,7 +157,7 @@ FUNCTION: get_embedder() -> Embedder
 
 ```
 CONSTANTS (from environment):
-    QDRANT_HOST: str = "localhost"
+    QDRANT_HOST: str = "qdrant"
     QDRANT_PORT: int = 6333
     COLLECTION_NAME: str = "memory_chunks"
     DENSE_DIM: int = 768
@@ -226,10 +227,15 @@ FUNCTION: build_graph() -> CompiledStateGraph
                 3a. Build system prompt:
                     "You are a text classifier. Classify this text using the taxonomy below.
                      Return JSON with keys: category_type, category, tags, key_words.
-                     Taxonomy: {json.dumps(taxonomy["categories"])}
+                     Taxonomy: {json.dumps(taxonomy['categories'])}
                      Text: {state['content']}"
-                3b. Call deepseek-flash LLM with system prompt, request structured JSON output
-                3c. Parse LLM response into TaxonomyClassification model
+                3b. Call litellm.completion(
+                       model=LLM_MODEL,                    # "deepseek/deepseek-flash"
+                       api_base=LITE_LLM_URL,
+                       api_key=LITE_LLM_API_KEY,
+                       messages=[{"role": "system", "content": system_prompt}],
+                       response_format={"type": "json_object"})
+                3c. Parse response.choices[0].message.content as JSON into TaxonomyClassification model
                 3d. taxonomy_loader.validate_classification(
                        taxonomy, result.category_type, result.category, result.tags)
                 3e. Return {"category_type": result.category_type,
@@ -370,7 +376,7 @@ ALL NODES follow the same pattern:
 
 ERROR CLASS HIERARCHY:
     ClassificationError(ValueError)     — taxonomy validation failures
-    LLMError(RuntimeError)              — deepseek-flash unreachable or unparseable
+    LLMError(RuntimeError)              — LiteLLM call to deepseek-flash fails or returns unparseable JSON
     QdrantError(ConnectionError)        — Qdrant unreachable or upsert rejected
     EmbeddingError(RuntimeError)        — LiteLLM or FastEmbed failures
 

@@ -89,7 +89,7 @@
     },
     "implementer": {
       "description": "Implementer — Code translator. Reads approved pseudocode specs, writes production code. Translates, does not design. Language-agnostic — skills loaded per task. Variations: python_implementer, infra_implementer.",
-      "mode": "subagent",
+      "mode": "all",
       "model": "opencode-go/deepseek-v4-flash",
       "prompt": "{file:./prompts/implementer.md}",
       "permission": {

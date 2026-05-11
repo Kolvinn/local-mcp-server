@@ -1,5 +1,7 @@
-"""Memory models and edge validation for the GraphRAG Memory Manager."""
+"""Memory models, graph pipeline, and edge validation for the GraphRAG Memory Manager."""
 
+from .embedder import EmbedType, Embedder, get_embedder
+from .graph import build_graph, get_graph, ingest
 from .models import (
     Category,
     NodeType,
@@ -9,8 +11,11 @@ from .models import (
     register_edge_type,
     is_edge_type,
 )
+from .qdrant_client import ensure_collection_exists, get_qdrant_client, upsert_point
+from .taxonomy_loader import get_payload_indexes, load_taxonomy, validate_classification
 
 __all__ = [
+    # Models
     "Category",
     "NodeType",
     "EdgeType",
@@ -18,6 +23,20 @@ __all__ = [
     "TagRegistry",
     "register_edge_type",
     "is_edge_type",
+    # Memory ingestion pipeline
+    "build_graph",
+    "get_graph",
+    "ingest",
+    "Embedder",
+    "EmbedType",
+    "get_embedder",
+    "get_qdrant_client",
+    "ensure_collection_exists",
+    "upsert_point",
+    "load_taxonomy",
+    "validate_classification",
+    "get_payload_indexes",
+    # Edge validation (forward-imported below)
     "validate",
     "register_edge",
     "get_registered_edges",
