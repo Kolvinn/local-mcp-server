@@ -15,7 +15,7 @@ import os
 config = {"configurable": {"thread_id": str(uuid7())}}
 
 #from langchain.agents import create_react_agent
-from langchain_litellm import ChatLiteLLM
+from langchain_litellm import ChatLiteLLM, LiteLLMEmbeddings
 from langchain_litellm import ChatLiteLLMRouter
 
 LITE_LLM_URL = os.getenv("LITE_LLM_URL","http://litellm:4000")

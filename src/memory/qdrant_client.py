@@ -155,7 +155,7 @@ class QdrantClient:
     """
 
     def __init__(self) -> None:
-        host = os.getenv("QDRANT_HOST", "localhost")
+        host = os.getenv("QDRANT_HOST", "qdrant")
         port = int(os.getenv("QDRANT_PORT", "6333"))
         self._collection_name = _get_collection_name()
         self._client = _QdrantClient(host=host, port=port)
