@@ -1,7 +1,7 @@
 # Master Component Status — Agentic Container Overhaul
 
 **Purpose:** Single file giving any agent complete context: architecture, component statuses, protocols, constraints, reference map. Read this, then `SESSION_HANDOFF.md`.
-**Last updated:** 2026-05-12 (Session 005)
+**Last updated:** 2026-05-12 (Session 006)
 **Decision authority:** User (direct session, no orchestrator chain)
 
 ---
@@ -26,11 +26,11 @@
 ### Core Principle: Distributed Local Dockerized Agent System
 - **Every agent is its own Docker container.** No subagents inside orchestrator's process. OpenCode phased out.
 - **No agent touches the host.** User controls host. Agents only access Docker volumes.
-- **One agentic stack per project.** Two projects = two independent docker-compose stacks, two volume pairs, two governance containers. Fully isolated.
+- **One agentic stack per project.** Two projects = two independent docker-compose stacks, four volumes each, one controller per project.
 - **The agentic framework is a standalone product** in its own git repo. Projects are external data consumed by it. Agentic memory/learnings never touch project repos.
-- **Governance MCP container** is the central permanent server — sole Docker socket holder, agent lifecycle manager, MCP proxy for all agent-to-external communication.
+- **Controller container** is the central permanent server — sole Docker socket holder, agent lifecycle manager, exposes CLI (user) and MCP (orchestrator) interfaces.
 
-### Two External Named Volumes Per Project
+### Four External Named Volumes Per Project
 ```
 {project}_project_vol          (shared — RO for agents, RW for orchestrator)
   ├── shared/skills/           (user-managed skills, bunx skills add)
@@ -44,14 +44,23 @@
   ├── agent2/                  (agent2 RW)
   ├── memory_manager/          (MM RW)
   └── ...
-```
-- **Orchestrator** mounts project_vol RW, agent_vol RW with `subpath: orchestrator`
-- **All other agents** mount project_vol RO, agent_vol RW with `subpath: {agent_name}`
-- **Governance** mounts agent_vol RW (for subpath creation), has `governance_state` volume for persistence
-- **Subpaths must pre-exist** — Docker does not auto-create them. Bootstrap script handles this.
 
-### Why Two Volumes (Not One)
-Docker dual-mounting the same volume (RO at `/app/project`, RW at `/app/project/subdir` with subpath) is undefined behavior per Docker docs. Two separate volumes avoids mount overlap entirely.
+{project}_flox_vol             (shared Flox environment — RO in agents, RW in controller)
+  └── .flox/                   (Flox manifest + run environment)
+
+controller_state_vol           (controller only — persistent)
+  ├── registry.json            (agent registry)
+  └── compose/                 (generated compose files)
+```
+- **Orchestrator** mounts project_vol RW, agent_vol RW with `subpath: orchestrator`, flox_vol RO
+- **All other agents** mount project_vol RO, agent_vol RW with `subpath: {agent_name}`, flox_vol RO
+- **Controller** mounts Docker socket, agent_vol RW (for subpath creation), flox_vol RW, controller_state_vol RW
+- **Subpaths must pre-exist** — Docker does not auto-create them. Controller creates them via init containers.
+
+### Why Four Volumes
+- `project_vol` + `agent_vol` avoid dual-mount undefined behavior (Docker docs)
+- `flox_vol` separates environment from project data, allowing env updates without touching code
+- `controller_state_vol` persists registry and compose history across controller restarts
 
 ---
 
@@ -64,24 +73,28 @@ Docker dual-mounting the same volume (RO at `/app/project`, RW at `/app/project/
 | **RAG Pipeline A1+A2** | `src/` | Built, 82 tests pass. Missing GraphRAG (A3-A6). |
 | **FastMCP Memory Server** | `src/` | Built, 96 unit tests pass. May be superseded by Memory Manager. |
 | **Agent Prompts (5 core)** | `.opencode/prompts/` | Active. Will become container-injected context when OpenCode phased out. |
+| **Config Schema (Part 02)** | `src/agent_framework/schema.py`, `validators.py` | Built. Pydantic models, validation rules, type defaults, manifest generation. |
+| **Controller Container (Python)** | `src/agent_framework/controller/` | Built. Registry, Docker ops, compose gen, CLI, MCP server. **Untested against real Docker.** |
 
 ### 📋 SPEC-ONLY — Designed, Not Built
 | Component | Source | Needs |
 |-----------|--------|-------|
-| **Bootstrap System (Python)** | `docs/specs/bootstrap-system-*.md` (6 files) | Implement: `bootstrap.py` CLI, `entrypoint.py`, config validation. Replaces bash script. |
-| **Governance MCP Container** | `docker_architecture_chat.md` §409-676 | Pseudocode spec → implement. FastMCP+DockerSDK, SSE transport. |
-| **Agent Container Template** | `docker_architecture_chat.md` §680-706 | Dockerfile: `ghcr.io/astral-sh/uv` base + Flox + PATH bypass. |
-| **Orchestrator Container** | `docker_architecture_chat.md` §478-490 | RW to project_vol, no Docker socket, connects Governance via MCP. |
-| **ACP Protocol** | Confirmed: `deepagents-acp` package + `acp` stdio. | `AgentServerACP` wraps `create_deep_agent`. Container transport TBD (stdio vs HTTP/SSE). |
+| **Controller Dockerfile** | — | Dockerfile with Python 3.14, uv, docker-py, FastMCP, Flox. User creates controller container manually. |
+| **Agent Container Template** | `docker_architecture_chat.md` §680-706 | Dockerfile: `ghcr.io/astral-sh/uv` base + Flox + PATH bypass. User will build. |
+| **Agent Entrypoint (Part 04)** | `docs/specs/bootstrap-system-04-entrypoint.md` | `entrypoint.py`: manifest→graph→MCP→`create_deep_agent()`→ACP. |
+| **Orchestrator Container** | `docker_architecture_chat.md` §478-490 | RW to project_vol, no Docker socket, connects Controller via MCP. |
+| **ACP Protocol** | Confirmed: `deepagents-acp` package + `acp` stdio. | `AgentServerACP` wraps `create_deep_agent`. Container transport (HTTP/SSE) TBD. |
 | **Dynamic Manifest / Hot-Reload** | `docker_architecture_chat.md` §714-907 | File-based manifest per agent subpath. |
 
 ### 🔄 SUPERSEDED
 | Component | Replaced By |
 |-----------|------------|
-| `bootstrap_project.sh` (bash) | Python bootstrap system (`bootstrap.py` + `agent-project.yaml` config-driven) |
-| Phase 2 Spec (symlink bridge, per-agent named volumes) | Two-volume + subpath model, governance MCP for lifecycle |
+| `bootstrap_project.sh` (bash) | Controller container (`agentctl` CLI + MCP server) |
+| Phase 2 Spec (symlink bridge, per-agent named volumes) | Four-volume model, controller for lifecycle |
 | OpenCode subagent model (orchestrator spawns via CLI) | All agents as Docker containers, orchestrator talks via ACP |
-| Single master volume | Two volumes (project_vol + agent_vol) — avoids dual-mount undefined behavior |
+| Single master volume | Four volumes (project + agent + flox + controller state) |
+| Static bootstrap script (host CLI) | Controller container (persistent, Docker socket holder) |
+| Governance as separate agent type | Governance IS the controller server (not an agent) |
 
 ### 📦 BACKLOG
 | Component | Trigger |
@@ -132,15 +145,17 @@ Docker dual-mounting the same volume (RO at `/app/project`, RW at `/app/project/
 
 | Agent | Container? | Status | Protocol |
 |-------|-----------|--------|----------|
-| **Governance MCP** | Yes (control plane) | Spec only | MCP over SSE |
-| **Orchestrator** | Yes | Spec only | MCP (to governance), ACP (to agents) |
+| **Controller** | Yes (control plane) | Python built, needs Dockerfile | MCP over SSE (to orchestrator), CLI (to user) |
+| **Orchestrator** | Yes | Spec only | MCP (to controller), ACP (to agents) |
 | **Memory Manager** | Yes | Built, no endpoint | Needs ACP wrapper |
-| **System Thinker** | Yes | Prompt exists | ACP (stretch: variations) |
+| **System Thinker** | Yes | Prompt exists | ACP |
 | **Implementer** | Yes | Prompt exists | ACP |
 | **Auditor** | Yes | Prompt exists | ACP |
 | **Explorer** | Yes | Prompt exists | ACP |
 | Researcher | Backlog | — | — |
 | Tester | Backlog | — | — |
+
+**Note:** Governance is not an agent. It is the controller server itself. Removed from agent type registry.
 
 ---
 
@@ -166,11 +181,15 @@ Docker dual-mounting the same volume (RO at `/app/project`, RW at `/app/project/
 1. ACP container transport — `deepagents-acp` only documents stdio. HTTP/SSE for containers TBD.
 2. Orchestrator LangGraph stateflow — routing, lifecycle, RAG integration
 3. Per-agent LangGraph graphs — only MM has one; others are prompt-only
-4. Agent Dockerfile — Flox manifest contents, uv lock strategy, image size
-5. Governance reconciliation — startup recovery from state drift
-6. Tool injection security — AST validation for dynamic tools
-7. MM ↔ RAG integration — shared collections?
-8. OpenCode phase-out timeline
+4. Agent Dockerfile — Flox manifest contents, uv lock strategy, image size. **User will build.**
+5. Controller Dockerfile — Base image, Docker socket mount, Flox integration. **User will create controller container manually.**
+6. Controller reconciliation — startup recovery from state drift (running containers vs registry)
+7. Tool injection security — AST validation for dynamic tools
+8. MM ↔ RAG integration — shared collections?
+9. OpenCode phase-out timeline
+10. Port management — Multiple controllers (one per project) conflict on port 8000. Dynamic ports or single shared controller?
+11. Skills delivery — Symlinks vs Deep Agents `skills=` parameter vs volume mounts
+12. Controller self-creation — How does the FIRST controller container start? (User handles manually per discussion)
 
 ---
 
@@ -178,14 +197,16 @@ Docker dual-mounting the same volume (RO at `/app/project`, RW at `/app/project/
 
 | Old | New |
 |-----|-----|
-| Bash bootstrap script (`bootstrap_project.sh`) | Python bootstrap system (`bootstrap.py` + `agent-project.yaml` config) |
+| Bash bootstrap script (`bootstrap_project.sh`) | Controller container (`agentctl` CLI + MCP server) |
 | OpenCode subagent spawning | All agents as Docker containers |
-| Symlink bridge for file grants | Two-volume + subpath mounts |
-| Single master volume | project_vol + agent_vol per project |
+| Symlink bridge for file grants | Four-volume + subpath mounts |
+| Single master volume | 4 volumes per project (project + agent + flox + controller state) |
 | Per-agent named volumes | Single agent_vol with subpaths |
 | File-based handoff only | ACP runtime + file-based artifacts |
 | Orchestrator as OpenCode process | Orchestrator as standalone container |
 | Global agentic stack | Per-project isolated stacks |
+| Static bootstrap on host | Persistent controller container with Docker socket |
+| Governance as separate agent type | Governance IS the controller server |
 
 ---
 
@@ -205,7 +226,8 @@ Docker dual-mounting the same volume (RO at `/app/project`, RW at `/app/project/
 | What | Where |
 |------|-------|
 | **This document** | `docs/plans/overhaul/MASTER_STATUS.md` |
-| **Session handoff (what's next)** | `docs/plans/overhaul/SESSION_HANDOFF.md` |
+| **Session handoff (Session 006 — latest)** | `docs/plans/overhaul/SESSION_HANDOFF_006.md` |
+| **Session handoff (Session 005 — historical)** | `docs/plans/overhaul/SESSION_HANDOFF.md` |
 | **Bootstrap system spec (overview)** | `docs/specs/bootstrap-system-01-overview.md` |
 | **Bootstrap system spec (schema)** | `docs/specs/bootstrap-system-02-schema.md` |
 | **Bootstrap system spec (CLI)** | `docs/specs/bootstrap-system-03-bootstrap.md` |
@@ -226,4 +248,8 @@ Docker dual-mounting the same volume (RO at `/app/project`, RW at `/app/project/
 | Research: Compose portability | `docs/exploration/docker-compose-portability-research.md` |
 | Phase 2 spec (superseded) | `docs/specs/container-volume-topology.md` |
 | Agent prompts | `.opencode/prompts/` |
-| Learnings: bootstrap | `docs/learnings/bootstrap/2026-05-12-spec.md` |
+| Controller code | `src/agent_framework/controller/` |
+| Schema + validators | `src/agent_framework/schema.py`, `validators.py` |
+| Type defaults | `src/agent_framework/defaults.json` |
+| Learnings: bootstrap (Session 005) | `docs/learnings/bootstrap/2026-05-12-spec.md` |
+| Learnings: bootstrap (Session 006) | `docs/learnings/bootstrap/2026-05-12-session-006.md` |
