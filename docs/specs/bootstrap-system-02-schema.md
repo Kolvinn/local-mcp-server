@@ -182,7 +182,7 @@ END
 | `auditor` | `agents/auditor/graph.py` | 5-check verification framework | `python-code-review` | Reads specs+code, never briefs |
 | `explorer` | `agents/explorer/graph.py` | Read-only codebase scout | (none) | Returns complete/error only |
 | `memory_manager` | `agents/memory_manager/graph.py` | Memory ingestion pipeline | `langchain-rag`, `qdrant-vector-search` | Has compiled graph |
-| `governance` | `agents/governance/graph.py` | Central MCP server | (none) | Sole Docker socket holder |
+
 
 Defaults are applied at bootstrap time during manifest generation. If the agent config
 overrides a field, the override wins. If neither config nor type default provides a value

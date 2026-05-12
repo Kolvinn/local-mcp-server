@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "agent_types": {
+    "orchestrator": {
+      "graph_module": "agents.orchestrator.graph",
+      "system_prompt_file": ".opencode/prompts/orchestrator.md",
+      "skills": [
+        "planning-with-files"
+      ]
+    },
+    "system_thinker": {
+      "graph_module": "agents.system_thinker.graph",
+      "system_prompt_file": ".opencode/prompts/system_thinker.md",
+      "skills": [
+        "sequential-thinking"
+      ]
+    },
+    "implementer": {
+      "graph_module": "agents.implementer.graph",
+      "system_prompt_file": ".opencode/prompts/implementer.md",
+      "skills": [
+        "python-expert"
+      ]
+    },
+    "auditor": {
+      "graph_module": "agents.auditor.graph",
+      "system_prompt_file": ".opencode/prompts/auditor.md",
+      "skills": [
+        "python-code-review"
+      ]
+    },
+    "explorer": {
+      "graph_module": "agents.explorer.graph",
+      "system_prompt_file": ".opencode/prompts/explorer.md",
+      "skills": []
+    },
+    "memory_manager": {
+      "graph_module": "agents.memory_manager.graph",
+      "system_prompt_file": ".opencode/prompts/memory_manager.md",
+      "skills": [
+        "langchain-rag",
+        "qdrant-vector-search"
+      ]
+    }
+  }
+}

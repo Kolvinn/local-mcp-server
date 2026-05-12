@@ -30,6 +30,7 @@ dependencies = [
     "fastembed>=0.8.0",
     "fastembed-gpu>=0.8.0",
     "litellm>=1.83.0",
+    "docker>=7.1.0",
 ]
 
 [dependency-groups]

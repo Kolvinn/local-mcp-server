@@ -34,7 +34,7 @@ Implement: YAML loading, schema validation, manifest generation, type defaults.
 |-------|-----|
 | `pydantic` | Validation models for config schema |
 | `python-type-safety` | Type annotations for validation functions |
-| `python-best-practices` | General code quality |
+| `python-expert` | General code quality |
 
 **Context files:**
 - `docs/specs/bootstrap-system-02-schema.md` (the spec itself)
