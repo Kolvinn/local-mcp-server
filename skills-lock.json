@@ -55,6 +55,12 @@
       "skillPath": "config/skills/deep-agents-orchestration/SKILL.md",
       "computedHash": "1570f8d88e1233edc3306d28224604172b016aedba0ced2efa2dd8e38e28ae62"
     },
+    "docker-compose-orchestration": {
+      "source": "manutej/luxor-claude-marketplace",
+      "sourceType": "github",
+      "skillPath": "plugins/luxor-devops-suite/skills/docker-compose-orchestration/SKILL.md",
+      "computedHash": "f61af99ed5390638b98d40124bcb47837a6a2d8adcb17343a5be525989494eef"
+    },
     "file-organizer": {
       "source": "composiohq/awesome-claude-skills",
       "sourceType": "github",

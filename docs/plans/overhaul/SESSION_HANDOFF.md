@@ -1,193 +1,138 @@
-# SESSION HANDOFF — Agentic Container Overhaul (Session 003)
+# Session Handoff — Session 004
 
-**Date:** 2026-05-08
-**Status:** Phase 2 (Container & Volume Topology) spec written — awaiting user review. Phase 3 (LangGraph State Management) next.
-**Handoff to:** Next orchestrator session or human review.
-
----
-
-## 1. Objective
-
-Same as Session 002 — overhaul local Docker setup into a **LangGraph-based multi-container agent system** powered by **Flox environments**.
+**Date:** 2026-05-12
+**Handoff to:** Next agent or human continuation
+**Primary context files:** `docs/plans/overhaul/MASTER_STATUS.md` + this file
 
 ---
 
-## 2. What Changed This Session (003)
+## 1. What Happened This Session
 
-### Phase 2 Design Spec Written
-- `docs/specs/container-volume-topology.md` created (1050 lines — needs splitting per §16)
-- Architect_thinker designed: volume topology, Docker Compose layout, Dockerfile template, Flox manifests per variation, context injection, container lifecycle, and OpenCode+LangGraph coexistence
-- Spec covers all 10 required sections with 3 mermaid diagrams and 10 decisions awaiting user approval
+### Architecture solidified
+- **Every agent is a Docker container.** No OpenCode subagents. OpenCode phased out eventually.
+- **Governance MCP container** is the central server — sole Docker socket holder, agent lifecycle manager, MCP proxy for all agent-to-external communication. Transitions from proxy to router once agents have their own MCP servers.
+- **Two external named volumes per project** (not one master volume):
+  - `{project}_project_vol` — shared RO for agents, RW for orchestrator. Contains `shared/skills/`, `shared/knowledge/`, `shared/config/`.
+  - `{project}_agent_vol` — per-agent RW isolation via Docker `volume: subpath:` option. Subdirectories (orchestrator, agent1, agent2, memory_manager, etc.) pre-created at bootstrap.
+- **One agentic stack per project.** Two projects = two independent docker-compose stacks, two volume pairs, two governance containers. Fully isolated.
+- **The agentic framework is a standalone product** in its own git repo. Projects are external data it consumes. Agentic memory/learnings never touch the project repo.
+- **Dual-protocol model**: MCP over SSE (control plane: governance ↔ orchestrator) and ACP via `acp-sdk-python` (runtime: orchestrator ↔ agents, user/TUI ↔ agents). ACP not yet built.
+- **Skills served from project volume**: User installs skills per project via `bunx skills add` on the project volume. Orchestrator symlinks allowed skills into agent subpaths based on allowlist. Agents have a `read_skill` tool that reads from their local skills directory.
+- **Flox baked into Docker image**, not on volumes. PATH bypass (`.flox/run/bin` on PATH) for zero activation overhead. Per-agent customization via `[include]` composition if needed later.
+- **`uv` treated as user territory** — confirmed NOT in Flox catalog by explorer, but user states it is. Use `ghcr.io/astral-sh/uv` base image pattern from prior specs.
 
-### Flox Research Completed
-- `docs/exploration/flox-docker-research.md` written (553 lines)
-- Flox works in Docker: apt install, `.flox/run/bin` on PATH for headless activation
-- uv IS in Flox catalog
-- Recommended pattern: Flox for ALL deps, minimal Dockerfile, no conda
+### MCP Registration & Access Delegation designed
+- Governance is sole MCP proxy during build phase. Agents route all MCP requests through governance.
+- Per-agent endpoint allowlist in `manifest.json` (`mcp_endpoints.allowed`).
+- Eventual migration: proxy → router (agents get their own MCP servers, governance becomes registry).
+- See MASTER_STATUS.md §8 for full detail.
 
-### Critical Learnings Recorded
-- **LEARNINGS §16**: Specs must NEVER exceed 350 lines. Break into multiple files. Write tool fails silently on large content — use bash fallback.
-- **Agent type**: `explorer` not `explore` — different subagent types, different capabilities
-- **Context economy**: Orchestrator must delegate file reading, not read directly
+### Bootstrap script written
+- `docs/plans/overhaul/bootstrap_project.sh` — creates volumes, pre-creates subdirectories, seeds project skeleton, generates `docker-compose.{project}.yml`.
+- Validated: YAML parses correctly. Targets absolute. Volume mounts correct (RO for agents on project_vol, RW for orchestrator on project_vol; subpath-based RW on agent_vol for all).
 
-### Files Modified
+### Three research tasks completed
+- `docs/exploration/docker-subpath-research.md` — subpaths must pre-exist, `external: true` + subpath is compatible, same-volume dual-mount is undefined behavior (we avoid this by using two separate volumes).
+- `docs/exploration/flox-per-project-research.md` — `flox activate -d /volume/path` works, Nix store can't live on volume, `[include]` composition viable for per-agent customization, bun + nodejs confirmed in Flox catalog.
+- `docs/exploration/docker-compose-portability-research.md` — project name isolation is automatic, variable substitution with per-project `.env` files recommended, omit `external: true` for auto-prefixed volumes.
+
+---
+
+## 2. Key Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Two volumes per project (not one) | Docker subpath on same volume mounted twice in one container is undefined. Separate volumes (project_vol + agent_vol) avoids mount overlap. |
+| Governance MCP is permanent central server | Starts as proxy, transitions to router. Also serves skills and manages agent lifecycle. Never removed. |
+| Bootstrap script controls initial layout | User runs it on host. Creates volumes, pre-creates subdirectories (required per Docker docs), generates compose. Inner spawning via governance comes after bootstrap. |
+| Per-project isolation (not global) | Each project gets its own compose stack, volumes, governance. No shared global infrastructure. |
+| Skills on project volume, symlinked per agent | Orchestrator manages allowlist → symlinks from `shared/skills/` into agent subpaths. Agent tool `read_skill` reads local skills dir. |
+| Scope narrowed: bootstrap only, not multi-project | Get single-project spawning working first. Multi-project templates come later. |
+| Subpaths assumed to work despite explorer findings | User will debug. Two-volume approach avoids the undefined dual-mount pattern anyway. |
+
+---
+
+## 3. Files Created/Modified This Session
+
 | File | Action |
 |------|--------|
-| `docs/exploration/flox-docker-research.md` | CREATED — Flox research findings |
-| `docs/specs/container-volume-topology.md` | CREATED — Phase 2 design spec |
-| `docs/context/LEARNINGS.md` | Updated — §16 added (spec size limits, write failures, agent type selection) |
-| `docs/plans/overhaul/progress.md` | Updated — Session 003 log |
-| `docs/plans/overhaul/SESSION_HANDOFF.md` | This file — rewritten for Session 003 |
+| `docs/plans/overhaul/MASTER_STATUS.md` | Created, updated throughout session — single source of truth |
+| `docs/plans/overhaul/SESSION_HANDOFF.md` | This file — rewrites Session 003 handoff |
+| `docs/plans/overhaul/bootstrap_project.sh` | Created — bootstrap script for project infrastructure |
+| `docs/exploration/docker-subpath-research.md` | Created — Docker subpath behavior research |
+| `docs/exploration/flox-per-project-research.md` | Created — Flox per-project patterns (extends prior research) |
+| `docs/exploration/docker-compose-portability-research.md` | Created — multi-instance compose portability |
+| `docs/plans/overhaul/test_compose.md` | Pre-existing — user's compose attempt (reference only, has issues) |
 
 ---
 
-## 3. Current System State (What Exists)
+## 4. Component Status Summary
 
-### Working
-- **FastMCP server**: 5 memory tools (add/search/delete/sync/list) on port 8000
-- **Agent team v2 designed**: 5 core types + 9 config-driven variations
-- **mcp-mem0-update**: Fully complete (goal tree migration, 96 unit tests passing)
-- **RAG pipeline A1+A2**: Pydantic models, edge contract (40 triples, 10 node types), chunker, embedder, Qdrant client — 82 tests pass
-- **Agent prompts**: All 5 core prompts updated with Variation Framework, Read/Write Boundaries, Mandatory Principles
-- **opencode.jsonc**: Models updated, rag_architect removed, variation names in descriptions
-- **Symlink bridge validation**: test-docker/ proof of concept working
-
-### Known Issues (from docs/project_notes/)
-- Qdrant collections stale (1536-dim), need recreation at 768-dim
-- Mem0 v3 API: `user_id` must be inside `filters` dict
-- PORT=8001 still in `.env` causing 3 test failures
-- Integration tests: 3/8 pass, 5 fail
-- RAG paused at A3 (Graph DB integration — zero code, spec written)
-- `infer` parameter not yet implemented
+| Component | Status |
+|-----------|--------|
+| Memory Manager (`src/memory/`) | Built, not tested, no endpoint (needs ACP wrapper) |
+| RAG Pipeline A1+A2 | Built, functional, 82 tests pass. Missing GraphRAG (A3-A6) |
+| Governance MCP Container | Spec only (from docker_architecture_chat.md) |
+| Agent Container Template (`langgraph-agent-base`) | Spec only — needs Dockerfile design |
+| Orchestrator Container | Spec only |
+| Bootstrap Script | Written, YAML validated, untested (needs Docker to test) |
+| ACP Protocol | Not designed, not built |
+| FastMCP Memory Server | Built, may be superseded by Memory Manager |
+| Agent Prompts (`.opencode/prompts/`) | Active but will migrate to container-injected context |
 
 ---
 
-## 4. Validated Architecture
+## 5. Current Phase
 
-**Three volume types, two container classes:**
+- Phase 0: Planning — ✅
+- Phase 1: Agent Design — ✅
+- Phase 2: Container & Volume Topology — ✅ (this session: solidified, bootstrap script written)
+- **Phase 3: LangGraph State Management — pending**
+- Phase 4-8: pending
 
-| Volume | Purpose | Who mounts it |
-|--------|---------|--------------|
-| `project-vol` (named, external) | Source of truth for current project files | Orch (rw), Init (rw for population) |
-| `agent-{name}-vol` (per agent) | Agent's isolated workspace | Orch (rw, for symlink mgmt), Agent (rw, for work) |
-
-| Container | Mounts | Role |
-|-----------|--------|------|
-| Orchestrator | `project-vol` + all `agent-*-vol`s | Symlink bridge, task routing, state management |
-| Agent (impl/expl) | Only its own `agent-*-vol` | Works blindly in its workspace |
-
----
-
-## 5. Agent Variation Framework
-
-**See `docs/plans/overhaul/agent-variation-matrix.md` for full detail.**
-
-| Variation | Base Type | Model | Skills | Context Injection |
-|-----------|-----------|-------|--------|-------------------|
-| orchestrator | — (primary) | glm-5.1 | planning-with-files | All docs/context/* (pointers only) |
-| strategic_thinker | system_thinker | qwen-3.6-plus | sequential-thinking, create-specification | constraints, services, stack |
-| rag_thinker | system_thinker | qwen-3.6-plus | qdrant-*, langchain-rag, sequential-thinking | constraints, stack, RAG specs |
-| architect_thinker | system_thinker | qwen-3.6-plus | architecture-patterns, agent-pseudocode, create-specification, mermaid-diagrams, sequential-thinking | constraints, stack, conventions, brief |
-| python_implementer | implementer | deepseek-v4-flash | python-expert, python-best-practices, pydantic, python-type-safety | constraints, conventions, stack, spec |
-| infra_implementer | implementer | deepseek-v4-flash | context7 | constraints, stack, spec |
-| code_auditor | auditor | deepseek-v4-pro | python-code-review, pytest, pytest-coverage | constraints, conventions, spec, code |
-| codebase_explorer | explorer | deepseek-v4-flash | (none — built-in) | Targeted query + paths |
-| dependency_explorer | explorer | deepseek-v4-flash | (none) | Targeted query + paths |
-
-**Key principle:** Prompts stay generic. New variations = new config row, zero prompt or code changes.
+Phase 2 deliverables for next agent:
+1. Agent Dockerfile template (`langgraph-agent-base` image)
+2. Governance MCP server pseudocode spec
+3. Updated docker-compose with governance + orchestrator + agents (beyond the bootstrap skeleton)
 
 ---
 
-## 6. Current Plan (task_plan.md)
+## 6. Exact Next Steps (in order)
 
-| Phase | Description | Status |
-|-------|-------------|--------|
-| 0 | Planning & context gathering | ✅ Complete |
-| 1 | Agent Design (types, variations, prompts, models) | ✅ Complete |
-| 2 | Container & Volume Topology Design | ✅ Spec written (awaiting review) |
-| 3 | LangGraph State Management | Pending (next) |
-| 4 | Orchestrator Agent Design | Pending |
-| 5 | RAG Integration (complete paused A3-A6) | Pending |
-| 6 | Implementation: Container + State | Pending |
-| 7 | Implementation: Orchestrator + RAG | Pending |
-| 8 | Polish, tests, docs | Pending |
+1. **Design agent Dockerfile template** — single image for all agent types. Flox for system tools (bun, ripgrep, jq, git, python). uv for Python packages (langchain, langgraph, pydantic, etc.). PATH bypass (`.flox/run/bin`). Base image: `ghcr.io/astral-sh/uv:python3.14-bookworm-slim` + Flox apt install.
+2. **Design governance MCP server spec** — FastMCP + Docker SDK. Tools: `provision_agent`, `destroy_agent`, `list_agents`, `modify_agent_capability`. SSE transport. State persistence to governance_state volume. Agent name validation (regex). Subpath pre-creation in `provision_agent`.
+3. **Update docker-compose** — add governance container (with docker.sock mount), add internal network, parameterize project name.
+4. **Test bootstrap script** — user must test with Docker. Key risks: subpath pre-creation, volume mount ordering, compose up.
+5. **Wire Memory Manager with ACP endpoint** — once ACP is designed and agent template exists.
+6. **Backlog items**: symlink bridge, multi-project templates, agent variations, researcher/tester agents, GraphRAG.
 
 ---
 
-## 7. Where Everything Lives
+## 7. Rules the Next Agent Must Follow
 
-| Resource | Path | Contents |
-|----------|------|----------|
-| **Task plan** | `docs/plans/overhaul/task_plan.md` | Phase breakdown, status, constraints |
-| **Findings** | `docs/plans/overhaul/findings.md` | All discovered research, system state, issues |
-| **Progress** | `docs/plans/overhaul/progress.md` | Session log, next actions |
-| **Session handoff** | `docs/plans/overhaul/SESSION_HANDOFF.md` | This file |
-| **Variation matrix** | `docs/plans/overhaul/agent-variation-matrix.md` | Full variation table, flow, model rationale |
-| **Context files** | `docs/context/` | Stack, conventions, constraints, services, learnings |
-| **Project notes** | `docs/project_notes/` | Bugs, decisions (ADRs 001-023), issues, key facts |
-| **Diagrams** | `docs/diagrams/` | 7 Mermaid diagrams + summary |
-| **Plans (past)** | `docs/plans/` | base/, agent-team/, mcp-mem0-update/, product_owner/ |
-| **RAG dev** | `docs/rag-dev/` | Spec, findings, edge contract, handoff — paused at A3 |
-| **Briefs** | `docs/briefs/` | MCP-Mem0 fixes (4 briefs, not yet executed) |
-| **Test Docker** | `test-docker/` | Validated symlink bridge experiment |
-| **Source** | `src/` | MCP server, memory service, RAG pipeline |
-| **Docker** | `Dockerfile`, `docker-compose.yml` | Current (old) single-container setup |
-| **Agent prompts** | `.opencode/prompts/` | orchestrator, system_thinker, implementer, auditor, explorer |
-| **Flox research** | `docs/exploration/flox-docker-research.md` | Flox in Docker, manifest format, package coverage, Dockerfile patterns |
-| **Phase 2 spec** | `docs/specs/container-volume-topology.md` | Full container/volume topology design (needs splitting per LEARNINGS §16) |
+From the governing session context (`essential_context.md` rules, adapted):
+
+1. **No autonomous decisions** — pause and ask user before acting
+2. **User is most efficient data source** — ask before delegating to Explorer, loading skills, writing files
+3. **Wide and tentative** — surface options/trade-offs, don't commit without user gate
+4. **Don't assume intent** — ambiguity → query user directly
+5. **Don't over-summarize** what user tells you to read — waste of tokens
+6. **Goal refinement only** unless ordered to design/build
+
+Additional project rules:
+
+7. **No host access** — agents never access host filesystem, only Docker volumes
+8. **User is Governor** — permissions bubble up, never assumed downward
+9. **Context Economy** — be concise, point to files, save context window
+10. **Learnings Recording** — after completing work, record to `docs/learnings/{domain}/{session}.md`
 
 ---
 
-## 8. Exact Next Steps
+## 8. What to Read First
 
-1. **User reviews `docs/specs/container-volume-topology.md`** — approve or request changes
-2. **User decides on OpenCode + LangGraph coexistence approach** — 2+ approaches detailed in §8 of spec
-3. **Phase 3: LangGraph State Management** — delegate to architect_thinker
-4. **Phase 4: Orchestrator Agent Design** — delegate to architect_thinker
-5. **Phase 5: RAG Integration** — complete paused A3-A6
-6. **Phase 6-8: Implementation, Polish** — only after all designs approved
-
-### If resuming:
-- Read `docs/plans/overhaul/task_plan.md` (phase status)
-- Read `docs/plans/overhaul/progress.md` (Session 003 log — critical failures)
-- Read `docs/context/LEARNINGS.md` §16 (spec size limits, write failures)
-- Read `docs/specs/container-volume-topology.md` (Phase 2 design — user review pending)
-- Read `docs/exploration/flox-docker-research.md` (Flox research)
-- Read `docs/plans/overhaul/agent-variation-matrix.md` (variation definitions)
-
----
-
-## 9. Key Decisions Made (Sessions 002-003)
-
-| Decision | Session | Rationale |
-|----------|---------|-----------|
-| **RAG Architect → System Thinker variation** | 002 | Same interaction mechanics. Different skills = different variation. |
-| **Code Auditor + Integration Auditor merged** | 002 | Same 5-check framework. Context injection per task differentiates. |
-| **Architect is System Thinker variation** | 002 | "How does it fit?" is a design question. Same mechanics. |
-| **Prompts stay generic, variations are config** | 002 | Containers map 1:1 to variations. No prompt changes when adding variations. |
-| **Orchestrator never reads full content** | 002 | Token conservation. Orchestrator owns context direction, not content depth. |
-| **GLM-5.1 / Qwen 3.6 Plus / DeepSeek V4** | 002 | Long-horizon, 1M context, lowest hallucination, cheap fast iteration. |
-| **Flox replaces conda in all containers** | 003 | Better determinism, broader system packages, clean separation from uv. |
-| **uv IS in Flox catalog** | 003 | Confirmed via context7 research — no apt/pip fallback needed for Python management. |
-| **Containers long-lived, per project** | 003 | Spin up as hierarchy, stay running, accept tasks. |
-| **Specs NEVER > 350 lines** | 003 | Write tool fails silently on large content. Break into multiple files. |
-| **bash echo fallback for file writes** | 003 | When Write tool silently fails, use `echo >> file.md` and `cat`. |
-| **`explorer` not `explore` subagent type** | 003 | Different capabilities — `explore` is thin search, `explorer` is our defined agent. |
-
----
-
-## 10. Constraints (Non-Negotiable)
-
-- Agents **never access host filesystem** — Docker volumes only
-- RTX 3080 (10GB VRAM max), 32GB RAM max
-- Python 3.14+, uv package manager
-- Ollama models: `llama3.1:8b`, `nomic-embed-text` (768-dim)
-- Qdrant on port 6333
-- Single user, no auth
-- `bunx` not `npx`, `bun` not Node.js
-- Port 8000 (not 8001)
-- No hardcoded secrets or user IDs — env vars only
-- `src/` is NOT a Python package — relative imports within packages
-- **Flox replaces conda** — all deps in manifest.toml, Dockerfile minimal
-- **Specs/docs NEVER > 350 lines** — break into multiple files
-- **Orchestrator delegates file reading** — does not read Docker/compose/source files directly
+1. **`docs/plans/overhaul/MASTER_STATUS.md`** — definitive context (component statuses, architecture, protocols, constraints, volume topology, reference map)
+2. **This file** — what happened, what's next
+3. **`docs/plans/overhaul/docker_architecture_chat.md`** — full design chat (governance spec, agent template, manifest system)
+4. **`docs/plans/overhaul/bootstrap_project.sh`** — bootstrap script (see what generate compose looks like)
+5. **`docs/exploration/docker-subpath-research.md`** — subpath pre-creation requirement is critical
+6. **`docs/exploration/flox-per-project-research.md`** §9 — recommended Dockerfile pattern
