@@ -1,4 +1,4 @@
-# Session Handoff — Session 004
+# Session Handoff — Session 005
 
 **Date:** 2026-05-12
 **Handoff to:** Next agent or human continuation
@@ -8,33 +8,34 @@
 
 ## 1. What Happened This Session
 
-### Architecture solidified
-- **Every agent is a Docker container.** No OpenCode subagents. OpenCode phased out eventually.
-- **Governance MCP container** is the central server — sole Docker socket holder, agent lifecycle manager, MCP proxy for all agent-to-external communication. Transitions from proxy to router once agents have their own MCP servers.
-- **Two external named volumes per project** (not one master volume):
-  - `{project}_project_vol` — shared RO for agents, RW for orchestrator. Contains `shared/skills/`, `shared/knowledge/`, `shared/config/`.
-  - `{project}_agent_vol` — per-agent RW isolation via Docker `volume: subpath:` option. Subdirectories (orchestrator, agent1, agent2, memory_manager, etc.) pre-created at bootstrap.
-- **One agentic stack per project.** Two projects = two independent docker-compose stacks, two volume pairs, two governance containers. Fully isolated.
-- **The agentic framework is a standalone product** in its own git repo. Projects are external data it consumes. Agentic memory/learnings never touch the project repo.
-- **Dual-protocol model**: MCP over SSE (control plane: governance ↔ orchestrator) and ACP via `acp-sdk-python` (runtime: orchestrator ↔ agents, user/TUI ↔ agents). ACP not yet built.
-- **Skills served from project volume**: User installs skills per project via `bunx skills add` on the project volume. Orchestrator symlinks allowed skills into agent subpaths based on allowlist. Agents have a `read_skill` tool that reads from their local skills directory.
-- **Flox baked into Docker image**, not on volumes. PATH bypass (`.flox/run/bin` on PATH) for zero activation overhead. Per-agent customization via `[include]` composition if needed later.
-- **`uv` treated as user territory** — confirmed NOT in Flox catalog by explorer, but user states it is. Use `ghcr.io/astral-sh/uv` base image pattern from prior specs.
+### Bootstrap system fully specified (6 files)
+Converted the bash `bootstrap_project.sh` into a Python bootstrap system. No code written — comprehensive pseudocode spec only.
 
-### MCP Registration & Access Delegation designed
-- Governance is sole MCP proxy during build phase. Agents route all MCP requests through governance.
-- Per-agent endpoint allowlist in `manifest.json` (`mcp_endpoints.allowed`).
-- Eventual migration: proxy → router (agents get their own MCP servers, governance becomes registry).
-- See MASTER_STATUS.md §8 for full detail.
+- **`docs/specs/bootstrap-system-01-overview.md`** — Architecture, lifecycle, data flow
+- **`docs/specs/bootstrap-system-02-schema.md`** — `agent-project.yaml` schema, validation rules, type registry, manifest generation
+- **`docs/specs/bootstrap-system-03-bootstrap.md`** — `bootstrap.py` CLI (validate/bootstrap/teardown), Docker SDK usage, volume/subdir/seed/compose logic
+- **`docs/specs/bootstrap-system-04-entrypoint.md`** — Container entrypoint: manifest→graph→MCP tools→`create_deep_agent()`→ACP
+- **`docs/specs/bootstrap-system-05-skills.md`** — Symlink model, SKILL.md validation, MCP proxy vs router two-phase model
+- **`docs/specs/bootstrap-system-00-pre-read.md`** — Implementer guide: which skills/context to load per spec part
 
-### Bootstrap script written
-- `docs/plans/overhaul/bootstrap_project.sh` — creates volumes, pre-creates subdirectories, seeds project skeleton, generates `docker-compose.{project}.yml`.
-- Validated: YAML parses correctly. Targets absolute. Volume mounts correct (RO for agents on project_vol, RW for orchestrator on project_vol; subpath-based RW on agent_vol for all).
+### Framework injection chain confirmed
+Loaded 7 skills and 4 LangChain doc pages to confirm exactly how tools, MCP, skills, permissions, and persistence are wired:
 
-### Three research tasks completed
-- `docs/exploration/docker-subpath-research.md` — subpaths must pre-exist, `external: true` + subpath is compatible, same-volume dual-mount is undefined behavior (we avoid this by using two separate volumes).
-- `docs/exploration/flox-per-project-research.md` — `flox activate -d /volume/path` works, Nix store can't live on volume, `[include]` composition viable for per-agent customization, bun + nodejs confirmed in Flox catalog.
-- `docs/exploration/docker-compose-portability-research.md` — project name isolation is automatic, variable substitution with per-project `.env` files recommended, omit `external: true` for auto-prefixed volumes.
+| Concern | Mechanism | API |
+|---------|-----------|-----|
+| **Tools** | `create_deep_agent(tools=[...])` | `@tool` functions + MCP-loaded tools merged |
+| **MCP** | `MultiServerMCPClient(server_config).get_tools()` | `langchain-mcp-adapters`, supports http+stdio transports |
+| **Skills** | `create_deep_agent(skills=[...])` + `FilesystemBackend` | Deep Agents `SkillsMiddleware`, SKILL.md progressive disclosure |
+| **Permissions** | `create_deep_agent(interrupt_on={...})` | `HumanInTheLoopMiddleware`, requires `checkpointer`+`thread_id` |
+| **Persistence** | `checkpointer=MemorySaver()`, `store=InMemoryStore()` | MVP; PostgresSaver/PostgresStore for production |
+| **ACP** | `AgentServerACP(agent)` + `run_agent(server)` | `deepagents-acp` package, stdio mode (container transport TBD) |
+
+### Key design decisions for the bootstrap system
+- **manifest.json as intermediate artifact** — bootstrap writes JSON, entrypoint reads JSON. Decouples host (Docker SDK, YAML) from container (minimal deps).
+- **Skills symlinked at bootstrap time** — relative symlinks resolve correctly when both volumes mounted in container.
+- **MCP MVP: direct URLs; governance proxy later** — manifest URLs change from `http://qdrant:6333` to `http://governance:8000/mcp/proxy/qdrant` when governance is built. No entrypoint code change.
+- **Flat agent map config** (not type registry + instances) — simpler for MVP. No variations built yet.
+- **`interrupt_on` included from start** — simple dict passthrough, avoids config migration.
 
 ---
 
@@ -42,13 +43,12 @@
 
 | Decision | Rationale |
 |----------|-----------|
-| Two volumes per project (not one) | Docker subpath on same volume mounted twice in one container is undefined. Separate volumes (project_vol + agent_vol) avoids mount overlap. |
-| Governance MCP is permanent central server | Starts as proxy, transitions to router. Also serves skills and manages agent lifecycle. Never removed. |
-| Bootstrap script controls initial layout | User runs it on host. Creates volumes, pre-creates subdirectories (required per Docker docs), generates compose. Inner spawning via governance comes after bootstrap. |
-| Per-project isolation (not global) | Each project gets its own compose stack, volumes, governance. No shared global infrastructure. |
-| Skills on project volume, symlinked per agent | Orchestrator manages allowlist → symlinks from `shared/skills/` into agent subpaths. Agent tool `read_skill` reads local skills dir. |
-| Scope narrowed: bootstrap only, not multi-project | Get single-project spawning working first. Multi-project templates come later. |
-| Subpaths assumed to work despite explorer findings | User will debug. Two-volume approach avoids the undefined dual-mount pattern anyway. |
+| `docker-py` SDK (not CLI subprocess) | Python-native, no shell parsing. User directed. |
+| `agent-project.yaml` config-driven | Single source of truth. No hardcoded agent lists. |
+| `manifest.json` decouples bootstrap from runtime | Bootstrap writes JSON (host, YAML, Docker SDK); entrypoint reads JSON (container, `json.loads` only). |
+| Graph module contract: `get_graph() -> CompiledStateGraph` | Consistent interface. Optional `get_tools() -> list` for custom tools. |
+| MCP endpoints as URLs in manifest | Transport-agnostic. Same manifest field works for direct and proxied connections. |
+| ACP container transport deferred | `deepagents-acp` only shows stdio. Need to investigate HTTP/SSE or Docker exec bridging. |
 
 ---
 
@@ -56,13 +56,19 @@
 
 | File | Action |
 |------|--------|
-| `docs/plans/overhaul/MASTER_STATUS.md` | Created, updated throughout session — single source of truth |
-| `docs/plans/overhaul/SESSION_HANDOFF.md` | This file — rewrites Session 003 handoff |
-| `docs/plans/overhaul/bootstrap_project.sh` | Created — bootstrap script for project infrastructure |
-| `docs/exploration/docker-subpath-research.md` | Created — Docker subpath behavior research |
-| `docs/exploration/flox-per-project-research.md` | Created — Flox per-project patterns (extends prior research) |
-| `docs/exploration/docker-compose-portability-research.md` | Created — multi-instance compose portability |
-| `docs/plans/overhaul/test_compose.md` | Pre-existing — user's compose attempt (reference only, has issues) |
+| `docs/specs/bootstrap-system-00-pre-read.md` | Created — implementer guide |
+| `docs/specs/bootstrap-system-01-overview.md` | Created — architecture overview |
+| `docs/specs/bootstrap-system-02-schema.md` | Created — agent-project.yaml schema |
+| `docs/specs/bootstrap-system-03-bootstrap.md` | Created — bootstrap CLI spec |
+| `docs/specs/bootstrap-system-04-entrypoint.md` | Created — container entrypoint spec |
+| `docs/specs/bootstrap-system-05-skills.md` | Created — skills & MCP spec |
+| `docs/learnings/bootstrap/2026-05-12-spec.md` | Created — session learnings |
+| `docs/plans/overhaul/MASTER_STATUS.md` | Updated — component status, reference map, unknowns |
+| `docs/plans/overhaul/SESSION_HANDOFF.md` | This file — rewrites Session 004 handoff |
+
+Skills loaded this session (7): `langchain-fundamentals`, `langgraph-fundamentals`, `deep-agents-core`, `deep-agents-orchestration`, `deep-agents-memory`, `langchain-middleware`, `langgraph-persistence`, `agent-pseudocode`, `create-specification`
+
+LangChain docs fetched (via Explorer): MCP (`langchain-mcp-adapters`), ACP (`deepagents-acp`), Deep Agents customization page (full `create_deep_agent` parameter list)
 
 ---
 
@@ -70,15 +76,13 @@
 
 | Component | Status |
 |-----------|--------|
+| Bootstrap System | Spec-only. 6-file pseudocode spec ready for implementation. |
 | Memory Manager (`src/memory/`) | Built, not tested, no endpoint (needs ACP wrapper) |
-| RAG Pipeline A1+A2 | Built, functional, 82 tests pass. Missing GraphRAG (A3-A6) |
-| Governance MCP Container | Spec only (from docker_architecture_chat.md) |
-| Agent Container Template (`langgraph-agent-base`) | Spec only — needs Dockerfile design |
+| RAG Pipeline A1+A2 | Built, functional, 82 tests pass |
+| Governance MCP Container | Spec only |
+| Agent Container Template | Spec only |
 | Orchestrator Container | Spec only |
-| Bootstrap Script | Written, YAML validated, untested (needs Docker to test) |
-| ACP Protocol | Not designed, not built |
-| FastMCP Memory Server | Built, may be superseded by Memory Manager |
-| Agent Prompts (`.opencode/prompts/`) | Active but will migrate to container-injected context |
+| ACP Protocol | Confirmed: `deepagents-acp` + `acp` package. Container transport TBD. |
 
 ---
 
@@ -86,53 +90,47 @@
 
 - Phase 0: Planning — ✅
 - Phase 1: Agent Design — ✅
-- Phase 2: Container & Volume Topology — ✅ (this session: solidified, bootstrap script written)
+- Phase 2: Container & Volume Topology — ✅
+- **Phase 2.5: Bootstrap System Spec — ✅ (this session)**
 - **Phase 3: LangGraph State Management — pending**
 - Phase 4-8: pending
-
-Phase 2 deliverables for next agent:
-1. Agent Dockerfile template (`langgraph-agent-base` image)
-2. Governance MCP server pseudocode spec
-3. Updated docker-compose with governance + orchestrator + agents (beyond the bootstrap skeleton)
 
 ---
 
 ## 6. Exact Next Steps (in order)
 
-1. **Design agent Dockerfile template** — single image for all agent types. Flox for system tools (bun, ripgrep, jq, git, python). uv for Python packages (langchain, langgraph, pydantic, etc.). PATH bypass (`.flox/run/bin`). Base image: `ghcr.io/astral-sh/uv:python3.14-bookworm-slim` + Flox apt install.
-2. **Design governance MCP server spec** — FastMCP + Docker SDK. Tools: `provision_agent`, `destroy_agent`, `list_agents`, `modify_agent_capability`. SSE transport. State persistence to governance_state volume. Agent name validation (regex). Subpath pre-creation in `provision_agent`.
-3. **Update docker-compose** — add governance container (with docker.sock mount), add internal network, parameterize project name.
-4. **Test bootstrap script** — user must test with Docker. Key risks: subpath pre-creation, volume mount ordering, compose up.
-5. **Wire Memory Manager with ACP endpoint** — once ACP is designed and agent template exists.
-6. **Backlog items**: symlink bridge, multi-project templates, agent variations, researcher/tester agents, GraphRAG.
+1. **Implement bootstrap system** — `bootstrap.py` CLI + config validation (specs 02+03). Load `docker-py`, `pydantic`, `PyYAML`. Test with real Docker.
+2. **Design agent Dockerfile template** — single image for all agent types. Flox for system tools, uv for Python packages. PATH bypass.
+3. **Implement container entrypoint** — `entrypoint.py` (spec 04). Load deep-agents, langgraph, langchain-mcp-adapters skills. Wire manifest→agent→ACP.
+4. **Design governance MCP server spec** — FastMCP + Docker SDK. Tools: `provision_agent`, `destroy_agent`, `list_agents`, `modify_agent_capability`.
+5. **Test end-to-end** — bootstrap → compose up → agent starts → ACP server running.
+6. **Backlog**: symlink bridge, multi-project templates, agent variations, GraphRAG, ACP container transport.
 
 ---
 
 ## 7. Rules the Next Agent Must Follow
 
-From the governing session context (`essential_context.md` rules, adapted):
-
 1. **No autonomous decisions** — pause and ask user before acting
 2. **User is most efficient data source** — ask before delegating to Explorer, loading skills, writing files
 3. **Wide and tentative** — surface options/trade-offs, don't commit without user gate
 4. **Don't assume intent** — ambiguity → query user directly
-5. **Don't over-summarize** what user tells you to read — waste of tokens
+5. **Don't over-summarize** what user tells you — waste of tokens
 6. **Goal refinement only** unless ordered to design/build
-
-Additional project rules:
-
 7. **No host access** — agents never access host filesystem, only Docker volumes
 8. **User is Governor** — permissions bubble up, never assumed downward
-9. **Context Economy** — be concise, point to files, save context window
+9. **Context Economy** — be concise, point to files
 10. **Learnings Recording** — after completing work, record to `docs/learnings/{domain}/{session}.md`
 
 ---
 
 ## 8. What to Read First
 
-1. **`docs/plans/overhaul/MASTER_STATUS.md`** — definitive context (component statuses, architecture, protocols, constraints, volume topology, reference map)
+1. **`docs/plans/overhaul/MASTER_STATUS.md`** — definitive context
 2. **This file** — what happened, what's next
-3. **`docs/plans/overhaul/docker_architecture_chat.md`** — full design chat (governance spec, agent template, manifest system)
-4. **`docs/plans/overhaul/bootstrap_project.sh`** — bootstrap script (see what generate compose looks like)
-5. **`docs/exploration/docker-subpath-research.md`** — subpath pre-creation requirement is critical
-6. **`docs/exploration/flox-per-project-research.md`** §9 — recommended Dockerfile pattern
+3. **`docs/specs/bootstrap-system-00-pre-read.md`** — which skills/context to load per task
+4. **`docs/specs/bootstrap-system-01-overview.md`** — architecture
+5. **`docs/specs/bootstrap-system-02-schema.md`** — config schema (if writing validation)
+6. **`docs/specs/bootstrap-system-03-bootstrap.md`** — CLI spec (if writing bootstrap.py)
+7. **`docs/specs/bootstrap-system-04-entrypoint.md`** — entrypoint spec (if writing entrypoint.py)
+8. **`docs/specs/bootstrap-system-05-skills.md`** — skills & MCP model
+9. **`docs/learnings/bootstrap/2026-05-12-spec.md`** — session learnings (assumptions, uncertainties)
